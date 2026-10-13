@@ -17,3 +17,20 @@ data/audit*
 figs/polymer_trends
 figs/edges_por
 tests
+*.gzip
+*.log
+missing_classifications.csv
+
+# Keep only the repo-owned compatibility snapshots and their new tests tracked.
+# Existing inventory workbooks, outputs and unrelated tests remain ignored.
+!inventories/
+inventories/*
+!inventories/compatibility/
+inventories/compatibility/*
+!inventories/compatibility/por_pv_ma.json
+!inventories/compatibility/README.md
+!tests/
+tests/*
+!tests/test_inventory_supplier_compat.py
+!tests/test_por_supplier_compatibility.py
+!tests/test_premise_compat.py

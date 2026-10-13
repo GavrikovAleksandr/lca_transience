@@ -1,0 +1,43 @@
+# Ordered, explicit supplier substitutions for imported inventories.
+# This file is separate from premise's production-pathway YAML schema.
+# No quantity conversion, automatic geography substitution or fuzzy matching.
+schema_version: 1
+rules:
+  - id: por_dac_methanol_pv
+    inventories:
+      - lci-itom_por.xlsx
+    consumers:
+      - name_prefix: "electricity supply, "
+        name_contains: "for DAC methanol (por)"
+        location: MA
+        unit: kilowatt hour
+    exchange:
+      name: electricity production, photovoltaic, commercial
+      reference_products:
+        - electricity, medium voltage
+        - electricity, low voltage
+      unit: kilowatt hour
+      location: MA
+    candidates:
+      - name: electricity production, photovoltaic, commercial
+        reference product: electricity, medium voltage
+        unit: kilowatt hour
+        location: MA
+        reason: "Existing Moroccan commercial PV, medium voltage; retain native provider."
+      - name: electricity production, photovoltaic, commercial
+        reference product: electricity, low voltage
+        unit: kilowatt hour
+        location: MA
+        reason: "Existing Moroccan commercial PV, low voltage; declared lossless voltage-interface proxy."
+    fallback:
+      path: ../inventories/compatibility/por_pv_ma.json
+      provider:
+        name: electricity production, photovoltaic, Morocco (por)
+        reference product: electricity, medium voltage
+        unit: kilowatt hour
+        location: MA
+    reason: >-
+      Commercial PV reference products and Moroccan provider coverage differ
+      between premise releases. Keep the 50% solar/50% wind electricity quantities
+      and MA production origin. Voltage conversion is a declared lossless
+      screening assumption; no grid backup, storage or balancing is inferred.
