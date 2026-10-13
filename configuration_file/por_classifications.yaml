@@ -1,0 +1,613 @@
+# Reporting classifications for the explicitly named PoR foreground activities.
+# Dataset metadata and exact reference-catalog metadata take precedence.
+# All rules below are reporting proxies: they fill gaps, never overwrite a native
+# ecoinvent classification or change inventories, exchanges, or carbon credits.
+schema_version: 1
+defaults:
+  systems:
+    - CPC
+    - ISIC rev.4 ecoinvent
+
+# Primary classification definitions checked on 2026-10-12. The ecoinvent
+# reference selectors below were also checked against the local 3.12 database.
+sources:
+  polymers: &polymers >-
+    UN CPC 2.1, 34740 and 34790; ISIC Rev.4, 2013.
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34740
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34790
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2013
+    Foreground identity: configuration_file/config_itom_por.yaml and
+    inventories/lci-itom_por.xlsx, Sheet1.
+  rubber: &rubber >-
+    UN CPC 2.1, 34800; ISIC Rev.4, 2013.
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34800
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2013
+    Foreground identity: inventories/lci-itom_por.xlsx, Sheet1, B146:B150.
+  organic: &organic >-
+    UN CPC 2.1, 34110; ISIC Rev.4, 2011.
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34110
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2011
+    Foreground identity and raw/upgraded boundaries:
+    configuration_file/config_itom_por.yaml and docs/por_mode_aware_inventory.md.
+  olefins: &olefins >-
+    Ecoinvent 3.12 classifications of the exact reference activity selected below.
+    UN CPC 2.1, 33421; ISIC Rev.4, 2011.
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/33421
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2011
+    Foreground identity: configuration_file/config_itom_por.yaml.
+  alcohols: &alcohols >-
+    Ecoinvent 3.12 methanol/1,4-butanediol product-family metadata;
+    UN CPC 2.1, 34139; ISIC Rev.4, 2011.
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34139
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2011
+    Foreground identity: configuration_file/config_itom_por.yaml and
+    inventories/lci-itom_por.xlsx, Sheet1.
+  industrial_gases: &industrial_gases >-
+    UN CPC 2.1, 34210; ISIC Rev.4, 2011.
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34210
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2011
+    Foreground identity: docs/por_dac_methanol_renewable_power.md.
+  steam: &steam >-
+    Ecoinvent 3.12 steam production, as energy carrier, in chemical industry.
+    UN CPC 2.1, 17300; ISIC Rev.4, 3530.
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/17300
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/3530
+  electricity: &electricity >-
+    UN CPC 2.1, 17100; ISIC Rev.4, 3510.
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/17100
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/3510
+    Foreground identity: docs/por_dac_methanol_renewable_power.md.
+  ccs: &ccs >-
+    PoR project reporting category, not an official CPC or ISIC code.
+    Service boundary: docs/por_mto_co2_accounting.md and
+    docs/por_mode_aware_inventory.md; inventories/lci-itom_por.xlsx,
+    Sheet1, activities at rows 1179, 1308 and 1357.
+    UN CPC 34210 describes the gas product and does not establish an official
+    code for this combined compression, transport and geological storage service:
+    https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34210
+
+rules:
+  - id: por_nylon66_resin
+    match:
+      name: nylon 6-6 production, explicit monomers, reconstructed (por)
+      ref_product: nylon 6-6
+      unit: kilogram
+    reference:
+      name: nylon 6-6 production
+      ref_product: nylon 6-6
+      unit: kilogram
+    status: provisional
+    source: *polymers
+    reason: Resin-only reconstruction has the same product and manufacturing scope as the ecoinvent nylon resin activity; no fibre manufacture or moulding is included.
+
+  - id: por_pet_resin
+    match:
+      name: PET production
+      ref_product: polyethylene terephthalate, granulate, amorphous
+      unit: kilogram
+    classifications:
+      CPC: "34740: Polyacetals, other polyethers and epoxide resins, in primary forms; polycarbonates, alkyd resins, polyallyl esters and other polyesters, in primary forms"
+      ISIC rev.4 ecoinvent: "2013:Manufacture of plastics and synthetic rubber in primary forms"
+    status: provisional
+    source: *polymers
+    reason: PET is a polyester resin in primary form. This fills only missing foreground metadata with the UN polyester category; native ecoinvent PET labels are preserved separately.
+
+  - id: por_pbs_resin
+    match:
+      name_regex: '^PBS production(?:, 100% bio-based carbon)?$'
+      ref_product: polybutylene succinate
+      unit: kilogram
+    classifications:
+      CPC: "34740: Polyacetals, other polyethers and epoxide resins, in primary forms; polycarbonates, alkyd resins, polyallyl esters and other polyesters, in primary forms"
+      ISIC rev.4 ecoinvent: "2013:Manufacture of plastics and synthetic rubber in primary forms"
+    status: provisional
+    source: *polymers
+    reason: The workbook describes polycondensation of succinic acid and butanediol to a polyester resin. Bio-based carbon changes feedstock origin, not the primary-form product family.
+
+  - id: por_pla_resin
+    match:
+      name: PLA production
+      ref_product: polylactic acid
+      unit: kilogram
+    classifications:
+      CPC: "34740: Polyacetals, other polyethers and epoxide resins, in primary forms; polycarbonates, alkyd resins, polyallyl esters and other polyesters, in primary forms"
+      ISIC rev.4 ecoinvent: "2013:Manufacture of plastics and synthetic rubber in primary forms"
+    status: provisional
+    source: *polymers
+    reason: The workbook describes lactide polymerisation to PLA resin. The polyester category is a product-family inference, not an ecoinvent dataset assignment.
+
+  - id: por_pbr_resin
+    match:
+      name: PBR production
+      ref_product: polybutadiene
+      unit: kilogram
+    classifications:
+      CPC: "34800: Synthetic rubber and factice derived from oils, and mixtures thereof with natural rubber and similar natural gums, in primary forms or in plates, sheets or strip"
+      ISIC rev.4 ecoinvent: "2013:Manufacture of plastics and synthetic rubber in primary forms"
+    status: provisional
+    source: *rubber
+    reason: Polybutadiene is the named synthetic-rubber product. The UN rubber category is used for this missing foreground label; the native ecoinvent polybutadiene classification is not replaced.
+
+  - id: por_polyether_polyols
+    match:
+      name_regex: '^PEP production(?:, retrofit)?$'
+      ref_product: polyether polyols, long chain
+      unit: kilogram
+    reference:
+      name: polyether polyols production, long chain
+      ref_product: polyether polyols, long chain
+      unit: kilogram
+    status: provisional
+    source: *polymers
+    reason: Same long-chain polyether product and primary-form manufacturing scope as the reference; retain its broader CPC 347 category without inventing additional precision.
+
+  - id: por_lignin_polyol
+    match:
+      name: PEP production, from lignin
+      ref_product: polyol
+      unit: kilogram
+    classifications:
+      CPC: "347: Plastics in primary forms"
+      ISIC rev.4 ecoinvent: "2013:Manufacture of plastics and synthetic rubber in primary forms"
+    status: provisional
+    source: *polymers
+    reason: Sheet1 B408 describes lignin oxypropylation to polymeric polyols for polyurethane precursors. Use the broad primary-form polymer category because the reference-product label polyol alone is less specific.
+
+  - id: por_mdi
+    match:
+      name_regex: '^MDI production(?:, exported)?$'
+      ref_product: methylene diphenyl diisocyanate
+      unit: kilogram
+    reference:
+      name: methylene diphenyl diisocyanate production
+      ref_product: methylene diphenyl diisocyanate
+      unit: kilogram
+    status: provisional
+    source: >-
+      Ecoinvent 3.12 methylene diphenyl diisocyanate production classification;
+      foreground identity in configuration_file/config_itom_por.yaml, FE_MDI.
+      https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34150
+      https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2013
+    reason: Same named MDI monomer and manufacturing role; copy the ecoinvent product-sector metadata, including its plastics-sector ISIC convention, rather than treat MDI as finished polyurethane.
+
+  - id: por_pmma
+    match:
+      name: PMMA production
+      ref_product: polymethyl methacrylate
+      unit: kilogram
+    classifications:
+      CPC: "34790: Other plastics in primary forms; ion exchangers"
+      ISIC rev.4 ecoinvent: "2013:Manufacture of plastics and synthetic rubber in primary forms"
+    status: provisional
+    source: *polymers
+    reason: Named acrylic polymer resin in primary form; not a moulded plastic article.
+
+  - id: por_polypropylene
+    match:
+      name: PPP production
+      ref_product: polypropylene, granulate
+      unit: kilogram
+    classifications:
+      CPC: "34790: Other plastics in primary forms; ion exchangers"
+      ISIC rev.4 ecoinvent: "2013:Manufacture of plastics and synthetic rubber in primary forms"
+    status: provisional
+    source: *polymers
+    reason: Polypropylene granulate is a primary-form polymer covered by CPC 34790; it is not an ethylene polymer or a fabricated article.
+
+  - id: por_pvc
+    match:
+      name: PVC production
+      ref_product: polyvinyl chloride, suspension polymerised
+      unit: kilogram
+    reference:
+      name: polyvinyl chloride production, suspension polymerisation
+      ref_product: polyvinyl chloride, suspension polymerised
+      unit: kilogram
+    status: provisional
+    source: >-
+      Ecoinvent 3.12 polyvinyl chloride production, suspension polymerisation.
+      https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34730
+      https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2013
+    reason: Foreground represents suspension-polymerised PVC resin and uses the same reference product as the native resin activity.
+
+  - id: por_ethylene_production
+    match:
+      name_regex: '^ethylene production, (?:MTO with loop, mode 2, allocated|LT FT distillation, mode 1, natural gas proxy) \(por\)$'
+      ref_product: ethylene
+      unit: kilogram
+    reference:
+      name: light olefins production, from methanol-to-olefins conversion, ethylene-to-propylene ratio of 1.51
+      ref_product: ethylene
+      unit: kilogram
+    status: provisional
+    source: *olefins
+    reason: Allocated chemical production delivers ethylene; the reference product-family category is retained across the modelled MTO and FT routes.
+
+  - id: por_ethylene_retrofit
+    match:
+      name_regex: '^(?:light olefins production, from methanol-to-olefins conversion, ethylene-to-propylene ratio of 1\.51, retrofit|unsaturated hydrocarbons production, steam cracking operation, average, retrofit(?: 2)?)$'
+      ref_product: ethylene
+      unit: kilogram
+    reference:
+      name: light olefins production, from methanol-to-olefins conversion, ethylene-to-propylene ratio of 1.51
+      ref_product: ethylene
+      unit: kilogram
+    status: provisional
+    source: *olefins
+    reason: Retrofit changes the production route and input inventory while the ethylene output family is unchanged. Exact product constraint excludes co-product electricity, hydrogen and heat.
+
+  - id: por_propylene_production
+    match:
+      name_regex: '^propylene production, (?:FCC dedicated, allocated|LT FT distillation, mode 1, natural gas proxy|MTO with loop, mode 2, allocated|naphtha cracker default, allocated|MTA retrofit, mode [12], allocated|gasoil cracker retrofit, waste oil proxy, allocated|naphtha cracker retrofit, (?:fossil|FT) mode, allocated) \(por\)$'
+      ref_product: propylene
+      unit: kilogram
+    reference:
+      name: light olefins production, from methanol-to-olefins conversion, ethylene-to-propylene ratio of 1.51
+      ref_product: propylene
+      unit: kilogram
+    status: provisional
+    source: *olefins
+    reason: Explicitly enumerated PoR cracking, MTA, MTO and FT routes deliver allocated propylene; classification is a product/industry reporting proxy independent of energy allocation or CO2 credit treatment.
+
+  - id: por_propylene_import
+    match:
+      name: propylene, imported
+      ref_product: propylene
+      unit: kilogram
+    reference:
+      name: market for propylene
+      ref_product: propylene
+      unit: kilogram
+    status: provisional
+    source: *olefins
+    reason: Import is a material-supply proxy for the same product. Its ISIC label follows the ecoinvent market convention for the supplied product sector, not a claim about the terminal operator's business.
+
+  - id: por_ethylene_market
+    match:
+      name: market for ethylene (por)
+      ref_product: ethylene
+      unit: kilogram
+    reference:
+      name: market for ethylene
+      ref_product: ethylene
+      unit: kilogram
+    status: provisional
+    source: *olefins
+    reason: Scenario supply mix for the exact ethylene product; inherit native product-sector reporting metadata.
+
+  - id: por_propylene_market
+    match:
+      name: market for propylene (por)
+      ref_product: propylene
+      unit: kilogram
+    reference:
+      name: market for propylene
+      ref_product: propylene
+      unit: kilogram
+    status: provisional
+    source: *olefins
+    reason: Scenario supply mix for the exact propylene product; inherit native product-sector reporting metadata.
+
+  - id: por_benzene_production
+    match:
+      name_regex: '^(?:raw benzene stream, (?:naphtha cracker (?:default|retrofit)|MTA retrofit), mode [12], allocated \(por\)|benzene production, (?:from raw benzene upgrading|via toluene hydrodealkylation) \(por\)|benzene, via methanol-to-aromatics, mass allocation)$'
+      ref_product: benzene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      ISIC rev.4 ecoinvent: "2011:Manufacture of basic chemicals"
+    status: provisional
+    source: *organic
+    reason: Newly modelled aromatic chemical stream or upgrading process. Raw-stream equivalence does not claim purification; use the broad hydrocarbon product family rather than borrow the native coke-production label of some benzene co-products.
+
+  - id: por_benzene_import_and_market
+    match:
+      name_regex: '^(?:benzene, imported from (?:EU|outside EU) \(por\)|market for benzene \(por\))$'
+      ref_product: benzene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      PoR activity category: Aromatic chemical supply
+    status: provisional
+    source: *organic
+    reason: Benzene supply is a hydrocarbon product. Leave ISIC unresolved because supply aggregation does not establish a manufacturing process or the terminal operator's industrial class.
+
+  - id: por_raw_benzene_import
+    match:
+      name: raw benzene, imported from EU (por)
+      ref_product: raw benzene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      PoR activity category: Raw aromatic stream supply
+    status: provisional
+    source: *organic
+    reason: Named raw aromatic stream is a broad hydrocarbon-family proxy. Purity and supplier manufacturing process are not established, so no ISIC industry is assigned.
+
+  - id: por_toluene_production
+    match:
+      name_regex: '^(?:raw toluene stream, (?:naphtha cracker (?:default|retrofit)|MTA retrofit), mode [12], allocated \(por\)|toluene production, from raw toluene upgrading \(por\)|toluene, via methanol-to-aromatics, mass allocation|BTX production, from pyrolysis gas, average, retrofit)$'
+      ref_product: toluene, liquid
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      ISIC rev.4 ecoinvent: "2011:Manufacture of basic chemicals"
+    status: provisional
+    source: *organic
+    reason: Explicit PoR aromatic production, allocated raw stream or upgrading activity. Hydrocarbon-family proxy does not assert a raw stream is already purified toluene.
+
+  - id: por_toluene_market
+    match:
+      name: market for toluene (por)
+      ref_product: toluene, liquid
+      unit: kilogram
+    reference:
+      name: market for toluene, liquid
+      ref_product: toluene, liquid
+      unit: kilogram
+    status: provisional
+    source: *organic
+    reason: Exact toluene product supply mix; inherit the equivalent ecoinvent market's product-sector metadata.
+
+  - id: por_raw_toluene_import
+    match:
+      name: raw toluene, imported from EU (por)
+      ref_product: raw toluene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      PoR activity category: Raw aromatic stream supply
+    status: provisional
+    source: *organic
+    reason: Broad hydrocarbon-family proxy for the named raw stream; leave supplier industry and purification status unresolved.
+
+  - id: por_pxylene_production
+    match:
+      name_regex: '^(?:raw p-xylene stream, (?:naphtha cracker (?:default|retrofit)|MTA retrofit), mode [12], allocated \(por\)|p-xylene production, from raw p-xylene upgrading \(por\)|p-xylene, via methanol-to-aromatics, mass allocation|BTX production, from pyrolysis gas, average, retrofit)$'
+      ref_product: p-xylene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      ISIC rev.4 ecoinvent: "2011:Manufacture of basic chemicals"
+    status: provisional
+    source: *organic
+    reason: Explicit PoR aromatic production, allocated raw stream or upgrading activity. The shared hydrocarbon family does not erase the raw-to-purified conversion boundary.
+
+  - id: por_pxylene_import_and_market
+    match:
+      name_regex: '^(?:p-xylene, imported from EU \(por\)|market for p-xylene \(por\))$'
+      ref_product: p-xylene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      PoR activity category: Aromatic chemical supply
+    status: provisional
+    source: *organic
+    reason: Same aromatic hydrocarbon product family; supply aggregation does not identify a unique manufacturing industry, so ISIC remains unresolved.
+
+  - id: por_raw_pxylene_import
+    match:
+      name_regex: '^raw p-xylene, imported from (?:EU|outside EU) \(por\)$'
+      ref_product: raw p-xylene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      PoR activity category: Raw aromatic stream supply
+    status: provisional
+    source: *organic
+    reason: Broad hydrocarbon-family proxy for the explicitly named raw aromatic stream; no purity or supplier-industry assertion.
+
+  - id: por_btx_benzene_retrofit
+    match:
+      name: BTX production, from pyrolysis gas, average, retrofit
+      ref_product: benzene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      ISIC rev.4 ecoinvent: "2011:Manufacture of basic chemicals"
+    status: provisional
+    source: *organic
+    reason: Foreground retrofit produces an aromatic chemical co-product. Use its hydrocarbon family, not the coke-category metadata present on some native benzene co-products.
+
+  - id: por_methanol_production
+    match:
+      name_regex: '^methanol production, from (?:methane GSR|syngas) \(por\)$'
+      ref_product: methanol
+      unit: kilogram
+    reference:
+      name: methanol production, from natural gas reforming
+      ref_product: methanol
+      unit: kilogram
+    status: provisional
+    source: *alcohols
+    reason: Same methanol product family and basic-chemical manufacturing role; the classification proxy does not equate the modelled syngas inventory with natural-gas reforming.
+
+  - id: por_methanol_supply
+    match:
+      name_regex: '^(?:methanol, imported from EU \(por\)|methanol, DAC-based, imported outside EU \(por\)|market for methanol \(por\))$'
+      ref_product: methanol
+      unit: kilogram
+    reference:
+      name: market for methanol
+      ref_product: methanol
+      unit: kilogram
+    status: provisional
+    source: *alcohols
+    reason: Supply of the same methanol product, using ecoinvent's market product-sector convention. Feedstock origin and DAC sourcing do not turn methanol into a CO2-removal service.
+
+  - id: por_dac_methanol_synthesis
+    match:
+      name_regex: '^methanol synthesis, hydrogen from electrolysis, CO2 from DAC(?:, for por| \(por\))$'
+      ref_product: methanol, unpurified
+      unit: kilogram
+    classifications:
+      CPC: "34139: Other alcohols, phenols, phenol-alcohols, and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      ISIC rev.4 ecoinvent: "2011:Manufacture of basic chemicals"
+    status: provisional
+    source: *alcohols
+    reason: Methanol synthesis output is explicitly unpurified methanol. Basic-alcohol family is a broad product proxy and does not assert final fuel-grade purity.
+
+  - id: por_dac_co2_product
+    match:
+      name_regex: '^carbon dioxide, captured, with a sorbent-based direct air capture system, 100ktCO2, with heat pump heat, and grid electricity(?:, for por| \(por\))$'
+      ref_product: carbon dioxide, captured
+      unit: kilogram
+    classifications:
+      CPC: "34210: Hydrogen, nitrogen, oxygen, carbon dioxide and rare gases; inorganic oxygen compounds of non-metals n.e.c."
+      ISIC rev.4 ecoinvent: "2011:Manufacture of basic chemicals"
+    status: provisional
+    source: *industrial_gases
+    reason: DAC supplier delivers captured CO2 as a chemical feedstock for methanol. This product classification does not apply to the separate geological-storage service.
+
+  - id: por_dac_hydrogen
+    match:
+      name: hydrogen production, PEM electrolysis, 50% solar and 50% wind, for DAC methanol (por)
+      ref_product: hydrogen, gaseous, 30 bar
+      unit: kilogram
+    classifications:
+      CPC: "34210: Hydrogen, nitrogen, oxygen, carbon dioxide and rare gases; inorganic oxygen compounds of non-metals n.e.c."
+      ISIC rev.4 ecoinvent: "2011:Manufacture of basic chemicals"
+    status: provisional
+    source: *industrial_gases
+    reason: Gaseous hydrogen production is an industrial-gas activity. Renewable electricity is an input, not the reference product.
+
+  - id: por_renewable_power_mix
+    match:
+      name: electricity supply, 50% solar and 50% wind, medium voltage, for DAC methanol (por)
+      ref_product: electricity, medium voltage
+      unit: kilowatt hour
+    classifications:
+      CPC: "17100: Electrical energy"
+      ISIC rev.4 ecoinvent: "3510:Electric power generation, transmission and distribution"
+    status: provisional
+    source: *electricity
+    reason: Explicit medium-voltage electricity supply mix; the renewable composition does not change the electrical-energy product family.
+
+  - id: por_steam
+    match:
+      name_regex: '^steam production, as energy carrier, in chemical industry(?:, for por| \(por\))$'
+      ref_product: heat, from steam, in chemical industry
+      unit: megajoule
+    reference:
+      name: steam production, as energy carrier, in chemical industry
+      ref_product: heat, from steam, in chemical industry
+      unit: megajoule
+    status: provisional
+    source: *steam
+    reason: Custom steam/heat supplier has the same carrier and supply activity as the native chemical-industry steam activity.
+
+  - id: por_bio_butanediol
+    match:
+      name: 1,4-butanediol production, fermentation, wheat straw, bio-based
+      ref_product: 1,4-butanediol, bio-based
+      unit: kilogram
+    reference:
+      name: 1,4-butanediol production
+      ref_product: 1,4-butanediol
+      unit: kilogram
+    status: provisional
+    source: *alcohols
+    reason: Same defined butanediol chemical product with a different carbon source and production route. No polymer-resin classification is assigned to this monomer.
+
+  - id: por_bio_succinic_acid
+    match:
+      name: succinic acid production, fermentation, glucose, low-pH
+      ref_product: succinic acid, bio-based
+      unit: kilogram
+    reference:
+      name: succinic acid production
+      ref_product: succinic acid
+      unit: kilogram
+    status: provisional
+    source: >-
+      Ecoinvent 3.12 succinic acid production classification;
+      inventories/lci-itom_por.xlsx, Sheet1, B1293:B1297.
+      https://unstats.un.org/unsd/classifications/Econ/Detail/EN/1074/34140
+      https://unstats.un.org/unsd/classifications/Econ/Detail/EN/27/2011
+    reason: Same defined dicarboxylic acid product with a fermentation route. Product-family reporting does not substitute the conventional fossil inventory for the bio-based inventory.
+
+  - id: por_ccs_service
+    match:
+      name_regex: '^carbon dioxide compression, transport and storage(?:, with credit, (?:MTO with loop|gasification with plastic waste|plastic waste pyrolysis))?$'
+      ref_product: carbon dioxide, stored
+      unit: kilogram
+    classifications:
+      PoR activity category: CO2 compression, transport and storage
+    status: provisional
+    source: *ccs
+    reason: Combined service handling already captured CO2. Its kilogram unit measures stored CO2, not sale of industrial gas. Official CPC and ISIC remain undefined pending a service classification review; historical credit wording does not create a classification or a carbon credit.
+
+  - id: por_legacy_mto_ethylene
+    match:
+      name: ethylene, via methanol-to-olefins, mass allocation
+      ref_product: ethylene
+      unit: kilogram
+    reference:
+      name: light olefins production, from methanol-to-olefins conversion, ethylene-to-propylene ratio of 1.51
+      ref_product: ethylene
+      unit: kilogram
+    status: provisional
+    source: *olefins
+    reason: The named mass-allocated ethylene coproduct has the same olefin product family as the verified MTO reference. This changes reporting metadata only, not allocation or process quantities.
+
+  - id: por_legacy_mta_toluene
+    match:
+      name: toluene, via methanol-to-aromatics, mass allocation
+      ref_product: toluene
+      unit: kilogram
+    classifications:
+      CPC: "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives"
+      ISIC rev.4 ecoinvent: "2011:Manufacture of basic chemicals"
+    status: provisional
+    source: *organic
+    reason: Toluene is the named aromatic hydrocarbon coproduct; the reporting category does not assume a different MTA inventory or allocation.
+
+  - id: forecast_ammonia_market
+    match:
+      name: market for ammonia (SPS)
+      ref_product: ammonia, anhydrous, liquid
+      unit: kilogram
+    reference:
+      name: market for ammonia, anhydrous, liquid
+      ref_product: ammonia, anhydrous, liquid
+      unit: kilogram
+    status: provisional
+    source: Verified ecoinvent 3.12 market metadata in configuration_file/ecoinvent_312_classification_catalog.json; FORECAST scenario market in configuration_file/config_forecast.yaml.
+    reason: The scenario-dependent supply mix sells the same ammonia product as the native market. Source shares and process burdens remain unchanged.
+
+  - id: forecast_methanol_market
+    match:
+      name: market for methanol (SPS)
+      ref_product: methanol
+      unit: kilogram
+    reference:
+      name: market for methanol
+      ref_product: methanol
+      unit: kilogram
+    status: provisional
+    source: *alcohols
+    reason: The scenario-dependent supply mix sells the same methanol product as the native market; classification is independent of fossil, biogenic or DAC carbon origin.
+
+  - id: prospective_secondary_heat_market
+    match:
+      name: market for heat, secondary, district or industrial
+      ref_product: heat, district or industrial
+      unit: megajoule
+    classifications:
+      CPC: "17300: Steam and hot water"
+      ISIC rev.4 ecoinvent: "3530:Steam and air conditioning supply"
+    status: provisional
+    source: *steam
+    reason: Secondary recovered heat is a heat-supply service. This reporting proxy does not establish renewable supply, zero burden or a particular steam temperature.
+
+  - id: prospective_nuclear_heat
+    match:
+      name: heat production, nuclear cogeneration
+      ref_product: heat, district or industrial
+      unit: megajoule
+    classifications:
+      CPC: "17300: Steam and hot water"
+      ISIC rev.4 ecoinvent: "3530:Steam and air conditioning supply"
+    status: provisional
+    source: *steam
+    reason: The reference output is heat rather than electricity. The provisional supply category does not alter the nuclear cogeneration allocation or inventory.

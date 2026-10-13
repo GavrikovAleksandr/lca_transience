@@ -209,6 +209,8 @@ class ExportNotebookSafetyTest(unittest.TestCase):
                 self.requested_years = list(years)
                 self.scenarios = [dict(item, year=year) for year in years for item in scenarios]
                 self.datapackage = Builder(self.scenarios)
+                self.classification_stats = {"fixture": True}
+                self.classification_audit = []
                 packages.append(self)
             def create_datapackage(self, **kwargs):
                 for item in self.scenarios:
@@ -223,6 +225,8 @@ class ExportNotebookSafetyTest(unittest.TestCase):
                      "bd": SimpleNamespace(databases={}), "scenario_names": ["OCE", "CL"],
                      "scenarios": definitions, "DB_NAME_INIT": "test", "EI_VERSION": "3.12",
                      "KEY_PREMISE": "placeholder", "BIOSPHERE_DB": "test"}
+        namespace.update(pd=SimpleNamespace(DataFrame=lambda rows: SimpleNamespace(head=lambda n: rows)),
+                         display=lambda value: None)
         with patch("por_supplier_linking.configure_por_export_support"), patch("por_supplier_linking.attach_por_supplier_linking"), patch(
                 "por_supplier_linking.attach_por_pathways_export"), patch("importlib.reload", side_effect=lambda module: module):
             exec(compile(brightway, "brightway_cell", "exec"), namespace)

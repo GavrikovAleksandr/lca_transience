@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "source_description": "Verified classification metadata from local ecoinvent 3.12 cutoff inventory, extracted read-only from the native ecoinvent-3.12-cutoff database. All regional records matching each exact name, reference product and unit agree on each recorded classification. Contains classification metadata only, with no inventories or exchanges.",
+  "source_inventory_version": "3.12",
+  "verification_date": "2026-10-12",
+  "extraction_method": "Read-only SQLite query; exact name, reference product and unit; classification consensus across all matching regional records",
+  "datasets": [
+    {
+      "name": "nylon 6-6 production",
+      "reference product": "nylon 6-6",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "34790: Other plastics in primary forms; ion exchangers",
+        "ISIC rev.4 ecoinvent": "2013:Manufacture of plastics and synthetic rubber in primary forms"
+      },
+      "source_locations": ["RER", "RoW"],
+      "source_dataset_count": 2
+    },
+    {
+      "name": "polyether polyols production, long chain",
+      "reference product": "polyether polyols, long chain",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "347: Plastics in primary forms",
+        "ISIC rev.4 ecoinvent": "2013:Manufacture of plastics and synthetic rubber in primary forms"
+      },
+      "source_locations": ["RER", "RoW"],
+      "source_dataset_count": 2
+    },
+    {
+      "name": "methylene diphenyl diisocyanate production",
+      "reference product": "methylene diphenyl diisocyanate",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "34150: Amine-function compounds; oxygen-function amino-compounds, except lysine and its esters and salts thereof and [\u2026]",
+        "ISIC rev.4 ecoinvent": "2013:Manufacture of plastics and synthetic rubber in primary forms"
+      },
+      "source_locations": ["RER", "RoW"],
+      "source_dataset_count": 2
+    },
+    {
+      "name": "polyvinyl chloride production, suspension polymerisation",
+      "reference product": "polyvinyl chloride, suspension polymerised",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "34730: Polymers of vinyl chloride or other halogenated olefins, in primary forms",
+        "ISIC rev.4 ecoinvent": "2013:Manufacture of plastics and synthetic rubber in primary forms"
+      },
+      "source_locations": ["Asia without China", "CN", "RAF", "RER", "RNA", "UN-SAMERICA"],
+      "source_dataset_count": 6
+    },
+    {
+      "name": "light olefins production, from methanol-to-olefins conversion, ethylene-to-propylene ratio of 1.51",
+      "reference product": "ethylene",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "33421: Ethylene, propylene, butylene, butadiene",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["CN"],
+      "source_dataset_count": 1
+    },
+    {
+      "name": "light olefins production, from methanol-to-olefins conversion, ethylene-to-propylene ratio of 1.51",
+      "reference product": "propylene",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "33421: Ethylene, propylene, butylene, butadiene",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["CN"],
+      "source_dataset_count": 1
+    },
+    {
+      "name": "market for propylene",
+      "reference product": "propylene",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "33421: Ethylene, propylene, butylene, butadiene",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["AE", "AR", "AU", "CA", "CN", "IL", "IN", "JP", "KR", "MY", "QA", "RER w/o RU", "RU", "RoW", "SA", "SG", "TH", "TR", "TW", "US", "VE", "ZA"],
+      "source_dataset_count": 22
+    },
+    {
+      "name": "market for ethylene",
+      "reference product": "ethylene",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "33421: Ethylene, propylene, butylene, butadiene",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["AE", "AR", "AU", "CA", "CN", "IL", "IN", "JP", "KR", "MY", "QA", "RER w/o RU", "RU", "RoW", "SA", "SG", "TH", "TR", "TW", "US", "VE", "ZA"],
+      "source_dataset_count": 22
+    },
+    {
+      "name": "market for toluene, liquid",
+      "reference product": "toluene, liquid",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "34110: Hydrocarbons and their halogenated, sulphonated, nitrated or nitrosated derivatives",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["RER", "RoW"],
+      "source_dataset_count": 2
+    },
+    {
+      "name": "methanol production, from natural gas reforming",
+      "reference product": "methanol",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "34139: Other alcohols, phenols, phenol-alcohols, and their halogenated, sulphonated, nitrated or nitrosated derivativ[\u2026]",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["AZ", "BN", "CA-AB", "CL", "CN", "DE", "EG", "GQ", "ID", "IN", "IR", "LT", "LY", "MY", "NL", "NO", "NZ", "OM", "QA", "RS", "RU", "SA", "TT", "US-LA", "US-TRE", "VE"],
+      "source_dataset_count": 26
+    },
+    {
+      "name": "market for methanol",
+      "reference product": "methanol",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "34139: Other alcohols, phenols, phenol-alcohols, and their halogenated, sulphonated, nitrated or nitrosated derivativ[\u2026]",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["CA", "CN", "IR", "OM", "QA", "RER w/o RU", "RU", "RoW", "SA", "TT", "UN-SAMERICA", "US"],
+      "source_dataset_count": 12
+    },
+    {
+      "name": "steam production, as energy carrier, in chemical industry",
+      "reference product": "heat, from steam, in chemical industry",
+      "unit": "megajoule",
+      "classifications": {
+        "CPC": "17300: Steam and hot water",
+        "ISIC rev.4 ecoinvent": "3530:Steam and air conditioning supply"
+      },
+      "source_locations": ["RER", "RoW"],
+      "source_dataset_count": 2
+    },
+    {
+      "name": "1,4-butanediol production",
+      "reference product": "1,4-butanediol",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "34139: Other alcohols, phenols, phenol-alcohols, and their halogenated, sulphonated, nitrated or nitrosated derivativ[\u2026]",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["RER", "RoW"],
+      "source_dataset_count": 2
+    },
+    {
+      "name": "succinic acid production",
+      "reference product": "succinic acid",
+      "unit": "kilogram",
+      "classifications": {
+        "CPC": "34140: Carboxylic acids and their anhydrides, halides, peroxides and peroxyacids and their halogenated, sulphonated, [\u2026]",
+        "ISIC rev.4 ecoinvent": "2011:Manufacture of basic chemicals"
+      },
+      "source_locations": ["GLO"],
+      "source_dataset_count": 1
+    }
+  ]
+}

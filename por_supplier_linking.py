@@ -1143,7 +1143,9 @@ def attach_por_pathways_export(package, **kwargs):
     """
     from premise_compat import (PATHWAYS_MAPPING_GUARD_VERSION,
                                pathways_activity_mapping_views, write_pathways_activity_mapping)
-    if getattr(package, "_por_pathways_export_guard_version", None) == PATHWAYS_MAPPING_GUARD_VERSION:
+    from por_classifications import capture_scenario_classifications, write_classification_snapshot
+    package_guard_version = (PATHWAYS_MAPPING_GUARD_VERSION, 1)
+    if getattr(package, "_por_pathways_export_guard_version", None) == package_guard_version:
         return False
     if not hasattr(package, "datapackage") or not callable(getattr(package, "_add_variables_mapping", None)):
         raise SupplierLinkingError("Expected a premise PathwaysDataPackage instance with its internal builder.")
@@ -1160,14 +1162,20 @@ def attach_por_pathways_export(package, **kwargs):
     original_create = package.create_datapackage
     package._por_pathways_mapping_snapshot = None
     package._por_pathways_mapping_scenarios = None
+    package._por_classification_snapshot = None
 
     @wraps(original_update)
     def update_and_preflight(*args, **options):
         package._por_pathways_mapping_snapshot = None
         package._por_pathways_mapping_scenarios = None
+        package._por_classification_snapshot = None
         result = original_update(*args, **options)
         package._por_pathways_mapping_snapshot = pathways_activity_mapping_views(package.datapackage.scenarios)
         package._por_pathways_mapping_scenarios = tuple(id(scenario) for scenario in package.datapackage.scenarios)
+        # Capture metadata before matrix export releases list/cache/store payloads.
+        if verbose:
+            print("Capturing complete activity classifications before matrix export...", flush=True)
+        package._por_classification_snapshot = capture_scenario_classifications(package.datapackage, verbose=verbose)
         if verbose:
             views, omitted = package._por_pathways_mapping_snapshot
             print(f"Pathways mapping preflight passed for {len(views)} scenario(s); {omitted} diagnostic entries excluded.", flush=True)
@@ -1183,16 +1191,27 @@ def attach_por_pathways_export(package, **kwargs):
                                                verbose=verbose, **options)
     guarded_mapper.__por_pathways_mapping_guard_version__ = PATHWAYS_MAPPING_GUARD_VERSION
 
+    def guarded_classifications(*args, **options):
+        if package._por_classification_snapshot is None:
+            raise SupplierLinkingError("Classification preflight did not run; recreate the package builder.")
+        if package._por_pathways_mapping_scenarios != tuple(id(scenario) for scenario in package.datapackage.scenarios):
+            raise SupplierLinkingError("Pathways scenarios changed after classification preflight.")
+        return write_classification_snapshot(package, package._por_classification_snapshot)
+    guarded_classifications.__por_classification_guard_version__ = 1
+
     @wraps(original_create)
     def guarded_create(*args, **options):
         if getattr(package._add_variables_mapping, "__por_pathways_mapping_guard_version__", None) != PATHWAYS_MAPPING_GUARD_VERSION:
             raise SupplierLinkingError("The concrete package mapping guard was replaced; recreate the package builder before exporting.")
+        if getattr(package._add_classifications_file, "__por_classification_guard_version__", None) != 1:
+            raise SupplierLinkingError("The classification export guard was replaced; recreate the package builder.")
         return original_create(*args, **options)
 
     package.datapackage.update = update_and_preflight
     package._add_variables_mapping = guarded_mapper
+    package._add_classifications_file = guarded_classifications
     package.create_datapackage = guarded_create
-    package._por_pathways_export_guard_version = PATHWAYS_MAPPING_GUARD_VERSION
+    package._por_pathways_export_guard_version = package_guard_version
     if verbose:
-        print("Attached concrete Pathways package guard; mapping preflight runs before matrix export.", flush=True)
+        print("Attached concrete Pathways package guard; mapping and classification preflight run before matrix export.", flush=True)
     return True

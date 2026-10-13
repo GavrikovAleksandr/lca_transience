@@ -1161,9 +1161,11 @@ Use `3_regionalization_impacts.ipynb` to inspect activity locations, while retai
 
 ### Missing classifications
 
-`pathways` may report activities that are not found in its classification table and write them to `missing_classifications.csv`. Calculations can still return totals, but missing classifications can weaken contribution grouping, sector attribution, and double-counting logic.
+`pathways` may report activities that are not found in its classification table and write them to `missing_classifications.csv`. In the inspected newer installation, inconsistent `unclassified`/`undefined` labels could also silently omit these activities from reported totals. The repository now preserves both labels and checks complete activity-column coverage, including negative contributions.
 
-Review these warnings before interpreting contribution figures. Custom PoR activities should be classified consistently with their function and reference product.
+Notebook 1 captures classifications before premise releases the scenario inventories and exports a populated classification resource with CSV/JSON audits. Notebook 2 repairs existing package metadata in memory and shows coverage plus provisional/unresolved assignments. Verified native classifications take priority; explicit rules in `configuration_file/por_classifications.yaml` fill foreground gaps, while genuine unknowns remain visible as `undefined`. No inventory exchanges or characterization factors are changed.
+
+Restart the kernel and rerun notebook 2 to replace previously incomplete results; changing labels cannot restore contributions already missing from a saved result. See [classification workflow, audits and rule extension](docs/por_classifications.md) and [classification sources](docs/por_classification_rules_sources.md).
 
 ## Result data and figure outputs
 

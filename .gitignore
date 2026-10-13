@@ -34,3 +34,7 @@ tests/*
 !tests/test_inventory_supplier_compat.py
 !tests/test_por_supplier_compatibility.py
 !tests/test_premise_compat.py
+!tests/test_por_classifications.py
+!tests/test_pathways_classification_compat.py
+!tests/test_por_pathways_instance.py
+/pathways_temp
