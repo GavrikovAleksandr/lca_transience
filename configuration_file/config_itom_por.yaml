@@ -434,7 +434,7 @@ production pathways:
     production volume:
       variable: Intermediate Product|raw_benzene|retrofit_MTA_with_loop|mode1
     ecoinvent alias:
-      name: raw benzene stream, MTA retrofit, mode 1, allocated (por)
+      name: benzene production, MTA literature proxy, mode 1, economic allocated (por)
       reference product: benzene
       exists in original database: False
 
@@ -442,7 +442,7 @@ production pathways:
     production volume:
       variable: Intermediate Product|raw_benzene|retrofit_MTA_with_loop|mode2
     ecoinvent alias:
-      name: raw benzene stream, MTA retrofit, mode 2, allocated (por)
+      name: benzene production, MTA literature proxy, mode 2, economic allocated (por)
       reference product: benzene
       exists in original database: False
 
@@ -530,7 +530,7 @@ production pathways:
     production volume:
       variable: Intermediate Product|raw_toluene|retrofit_MTA_with_loop|mode1
     ecoinvent alias:
-      name: raw toluene stream, MTA retrofit, mode 1, allocated (por)
+      name: toluene production, MTA literature proxy, mode 1, economic allocated (por)
       reference product: toluene, liquid
       exists in original database: False
 
@@ -538,7 +538,7 @@ production pathways:
     production volume:
       variable: Intermediate Product|raw_toluene|retrofit_MTA_with_loop|mode2
     ecoinvent alias:
-      name: raw toluene stream, MTA retrofit, mode 2, allocated (por)
+      name: toluene production, MTA literature proxy, mode 2, economic allocated (por)
       reference product: toluene, liquid
       exists in original database: False
 
@@ -632,7 +632,7 @@ production pathways:
     production volume:
       variable: Intermediate Product|raw_para_xylene|retrofit_MTA_with_loop|mode1
     ecoinvent alias:
-      name: raw p-xylene stream, MTA retrofit, mode 1, allocated (por)
+      name: mixed xylenes production, MTA literature proxy, mode 1, economic allocated (por)
       reference product: p-xylene
       exists in original database: False
 
@@ -640,7 +640,7 @@ production pathways:
     production volume:
       variable: Intermediate Product|raw_para_xylene|retrofit_MTA_with_loop|mode2
     ecoinvent alias:
-      name: raw p-xylene stream, MTA retrofit, mode 2, allocated (por)
+      name: mixed xylenes production, MTA literature proxy, mode 2, economic allocated (por)
       reference product: p-xylene
       exists in original database: False
 
@@ -905,7 +905,7 @@ markets:
         amount: 0.027777778
 
       # ITOM steam input: 2 TJ/kt = 2 MJ/kg.
-      - name: steam production, as energy carrier, in chemical industry, for por
+      - name: steam production, as energy carrier, in chemical industry (por)
         reference product: heat, from steam, in chemical industry
         amount: 2.0
 
@@ -970,7 +970,7 @@ markets:
         amount: 0.027777778
 
       # ITOM steam input: 2 TJ/kt = 2 MJ/kg.
-      - name: steam production, as energy carrier, in chemical industry, for por
+      - name: steam production, as energy carrier, in chemical industry (por)
         reference product: heat, from steam, in chemical industry
         amount: 2.0
 
