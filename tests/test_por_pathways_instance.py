@@ -264,6 +264,25 @@ class PathwaysInstanceExportTest(unittest.TestCase):
         self.export(package, events)
         self.assertEqual(events, ["update", "linked", "export", "matrices", "mapper", "completed"])
 
+    def test_legacy_premise_without_inventory_store_exports_normally(self):
+        package, events, _ = self.package([{"steel": {"steel output": [activity()]}}])
+        self.attach(package)
+        missing_api = ModuleNotFoundError("No module named 'premise.inventory_store'",
+                                          name="premise.inventory_store")
+        with patch.object(linking, "_inventory_store_api", side_effect=missing_api):
+            self.export(package, events)
+        self.assertEqual(events, ["update", "linked", "export", "matrices", "mapper", "completed"])
+
+    def test_missing_native_api_dependency_is_not_silently_bypassed(self):
+        package, events, _ = self.package([{"steel": {"steel output": [activity()]}}])
+        self.attach(package)
+        missing_dependency = ModuleNotFoundError("No module named 'native_dependency'",
+                                                 name="native_dependency")
+        with patch.object(linking, "_inventory_store_api", side_effect=missing_dependency):
+            with self.assertRaisesRegex(ModuleNotFoundError, "native_dependency"):
+                package.create_datapackage()
+        self.assertEqual(events, [])
+
     def test_original_mapping_is_restored_when_native_mapper_raises(self):
         mapping = {"metals": {"steel": [activity()], **diagnostics()}}
         package, events, _ = self.package([mapping])

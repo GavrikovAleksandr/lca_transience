@@ -17,7 +17,7 @@ _RUNTIME_FIELDS = frozenset({
     "database filepath", "database metadata cache filepath",
     "database metadata filepath", "database name", "external data",
     "heat diagnostics", "iam data", "index",
-    "inventories metadata cache filepath", "mapping", "por supplier linking",
+    "inventories metadata cache filepath", "mapping", "por supplier linking", "metal steel policy",
     "unmatched category flows", "additional valid regions",
 })
 

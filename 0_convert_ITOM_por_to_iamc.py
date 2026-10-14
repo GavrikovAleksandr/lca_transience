@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import re
+import json
+import hashlib
 from pathlib import Path
 
 import pandas as pd
+from por_px_terminal_purity import (
+    annual_raw_px_use, reconcile_px_terminal_purity, verify_px_extraction_yield,
+    validate_px_source_flows,
+)
 
 
 # ----------------------------
@@ -478,6 +484,7 @@ def main():
 
     scenario_outputs = {}
     mode_outputs = []
+    px_use_outputs = []
 
     for scenario, filename in SCENARIO_INPUTS.items():
         sheets = pd.read_excel(
@@ -487,6 +494,9 @@ def main():
                 "production_volume",
                 "transport_to_PoR",
                 "transport_from_PoR",
+                "use_volume",
+                "input_factors",
+                "output_factors",
             ],
         )
 
@@ -502,6 +512,15 @@ def main():
             "run_id": None,  # Keep scenario labels exactly CL and OCE.
             "annualize_time_step_years": 5,
         }
+
+        verify_px_extraction_yield(sheets["input_factors"], sheets["output_factors"])
+        validate_px_source_flows(sheets["production_volume"], "LocalProductionByMode")
+        validate_px_source_flows(sheets["transport_to_PoR"], "Transport")
+        validate_px_source_flows(sheets["transport_from_PoR"], "Transport")
+        px_use_outputs.append(annual_raw_px_use(
+            sheets["use_volume"], model=common_options["model"], scenario=scenario,
+            region_map=DEFAULT_REGION_MAP, time_step_years=5,
+        ))
 
         production = to_iamc_production_volume(
             sheets["production_volume"],
@@ -560,6 +579,12 @@ def main():
     combined = combined[metadata_columns + year_columns]
     combined[year_columns] = combined[year_columns].fillna(0)
 
+    # Preserve original ITOM rows. Terminal p-xylene is purified according to
+    # the team clarification; only its local-used share bypasses extraction.
+    combined, px_purity_audit = reconcile_px_terminal_purity(
+        combined, pd.concat(px_use_outputs, ignore_index=True),
+    )
+
     mode_detail = pd.concat(mode_outputs, ignore_index=True, sort=False)
     mode_detail = mode_detail[metadata_columns + year_columns]
     combined = add_mode_aware_rows(
@@ -594,6 +619,15 @@ def main():
     output = data_dir / "scenario_data_itom_por.csv"
     combined.to_csv(output, index=False)
     print(f"Wrote {output.name}: {len(combined)} rows (CL + OCE)")
+
+    audit_path = data_dir / "p_xylene_terminal_purity_audit.json"
+    audit_path.write_text(json.dumps({
+        "schema_version": 1,
+        "source_sha256": {filename: hashlib.sha256((data_dir / filename).read_bytes()).hexdigest()
+                          for filename in SCENARIO_INPUTS.values()},
+        "records": px_purity_audit,
+    }, indent=2), encoding="utf-8")
+    print(f"Wrote {audit_path.name}: {len(px_purity_audit)} scenario-year balances")
 
 
 if __name__ == "__main__":

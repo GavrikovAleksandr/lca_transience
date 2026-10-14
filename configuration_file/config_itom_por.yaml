@@ -661,12 +661,14 @@ production pathways:
       reference product: raw p-xylene
       exists in original database: False
 
-  raw_para_xylene_terminal_import_row:
+  para_xylene_terminal_import_row:
     production volume:
-      variable: Intermediate Product|raw_para_xylene|para_xylene_terminal_BAT
+      # Derived local-used share; original gross raw-labelled row is retained
+      # for audit, not added on top of local extraction output.
+      variable: Intermediate Product|para_xylene|para_xylene_terminal_BAT|purified_local_supply
     ecoinvent alias:
-      name: raw p-xylene, imported from outside EU (por)
-      reference product: raw p-xylene
+      name: p-xylene, purified, imported from outside EU (por)
+      reference product: p-xylene
       exists in original database: False
 
   # Already-purified European import; no upgrading is applied.
@@ -680,7 +682,7 @@ production pathways:
 
   para_xylene_from_raw_upgrading:
     production volume:
-      variable: Intermediate Product|para_xylene|para_xylene_extraction
+      variable: Intermediate Product|para_xylene|para_xylene_extraction|nonterminal_supply
     ecoinvent alias:
       name: p-xylene production, from raw p-xylene upgrading (por)
       reference product: p-xylene
@@ -1041,7 +1043,6 @@ markets:
       - raw_para_xylene_retrofit_naphtha_cracker_mode1
       #imports
       - raw_para_xylene_trade_import_eu
-      - raw_para_xylene_terminal_import_row
 
     add:
       # ITOM: 0.2 TJ electricity per kt p-xylene
@@ -1071,8 +1072,12 @@ markets:
     includes:
       # Purified output obtained from raw-material upgrading.
       # The share is driven by:
-      # Intermediate Product|para_xylene|para_xylene_extraction
+      # Original extraction minus the terminal-origin local-used share.
       - para_xylene_from_raw_upgrading
+
+      # Terminal imports are already purified, per the ITOM clarification.
+      # Use local supply after proportional export allocation, not gross imports.
+      - para_xylene_terminal_import_row
 
       # Already-purified European import.
       - para_xylene_trade_import_eu

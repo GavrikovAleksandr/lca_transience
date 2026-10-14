@@ -12,6 +12,13 @@ The raw-aromatic inventories stop before extraction. Their `benzene`, `toluene, 
 
 ## Inventory construction and limitations
 
+Terminal p-xylene is now supplied directly as purified material, per the ITOM
+team clarification. Its original raw-labelled source rows remain for audit.
+Two derived local-supply rows reconcile terminal origin and non-terminal
+extraction, including re-exports, so moving the terminal does not double-count
+the original extraction output. Domestic/raw European supply retains the
+additional 1:1 extraction step. See [terminal p-xylene purity](por_px_terminal_purity.md).
+
 The new process amounts use the ITOM input/output coefficients and the active CL/OCE technology modes. Material-feed burdens are mass-allocated over non-CO₂ hydrocarbon outputs; auxiliaries and direct flue CO₂ are allocated over intended chemical outputs, excluding methane and heavy fuel oil. For MTO mode 2, all represented joint-process exchanges use the same four-product pool: ethylene, propylene, ethane and propane. The inventory comments and sources record individual conversions and proxies. Output steam and high-temperature heat from MTA are not treated as purchased inputs or automatically credited. `CO2_allowance` is bookkeeping, not a direct emission.
 
 ## MTO captured CO2 and storage

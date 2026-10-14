@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "generator_version": 1,
+  "source": "yaml",
+  "input_sha256": {
+    "metal_primary_secondary_shares.yaml": "73f8c17baf1f8962bb3d056e7a8163c8eca7397a41a8fc2f47acd7090f484d29",
+    "metal_2050_literature_evidence.csv": "8c0305bf83f4684241bfa24478513797b4a51ace43a255b265ca28761d370877",
+    "metal_product_family_mapping.csv": "2e6b81879bc4619ee53abfcdb6878452adcdd2050e9bafaa5392af3d734c6030"
+  },
+  "output_sha256": {
+    "primary_secondary_split_conservative.yaml": "e5f673979b05e0818ae3895cbd2c8211a4ace02ebca7bc623203a676b4a1969d",
+    "primary_secondary_split_baseline.yaml": "98f788acf3d6e886a6beec918dac878edfb3e3b266aabdb0bbfd20971890068a",
+    "primary_secondary_split_optimistic.yaml": "c513e9061033db24e8992c8e34a896e5cfccc1e424dae6320e0bf1c1ad89969d",
+    "primary_secondary_split.yaml": "98f788acf3d6e886a6beec918dac878edfb3e3b266aabdb0bbfd20971890068a",
+    "metal_shares_2050_scenarios.yaml": "213e974af11a286b45b87d6ad0949680460d9cd5384ce42920494de7af460e7c"
+  },
+  "generated_output_sha256": {
+    "primary_secondary_split_conservative.yaml": "e5f673979b05e0818ae3895cbd2c8211a4ace02ebca7bc623203a676b4a1969d",
+    "primary_secondary_split_baseline.yaml": "98f788acf3d6e886a6beec918dac878edfb3e3b266aabdb0bbfd20971890068a",
+    "primary_secondary_split_optimistic.yaml": "c513e9061033db24e8992c8e34a896e5cfccc1e424dae6320e0bf1c1ad89969d"
+  },
+  "manual_outputs": [],
+  "scenario_files": {
+    "conservative": "primary_secondary_split_conservative.yaml",
+    "baseline": "primary_secondary_split_baseline.yaml",
+    "optimistic": "primary_secondary_split_optimistic.yaml"
+  },
+  "baseline_alias": "primary_secondary_split.yaml",
+  "combined_file": "metal_shares_2050_scenarios.yaml",
+  "product_count": 103,
+  "family_count": 13,
+  "generated_at_utc": "2026-10-13T12:04:54.995694+00:00"
+}

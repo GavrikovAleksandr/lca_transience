@@ -185,11 +185,58 @@ class ClassificationCaptureTest(unittest.TestCase):
         self.assertEqual(snapshot.stats["conflicts"], 0)
         self.assertTrue(snapshot.classifications[("chemical production", "chemical")]["CPC"].startswith("34740:"))
 
-    def test_invalid_identity_and_duplicate_classification_systems_fail(self):
+    def test_invalid_identity_and_malformed_classification_metadata_fail(self):
         with self.assertRaisesRegex(ClassificationError, "incomplete"):
             self.capture(builder([activity(product="")]))
-        with self.assertRaisesRegex(ClassificationError, "Conflicting CPC"):
-            self.capture(builder([activity(classifications=[("CPC", "341"), ("CPC", "999")])]))
+        with self.assertRaisesRegex(ClassificationError, "Invalid classification metadata"):
+            self.capture(builder([activity(classifications=[("CPC",)])]))
+
+    def test_reported_petroleum_gypsum_duplicate_codes_are_audited_not_fatal(self):
+        codes = [("CPC", "33500: Petroleum jelly; paraffin wax"),
+                 ("CPC", "15200: Gypsum; anhydrite; limestone flux"),
+                 ("CPC", "33500: Petroleum jelly; paraffin wax"),
+                 ("ISIC", "1920:Manufacture of refined petroleum products")]
+        database = [activity("calcined petroleum coke production", "gypsum, mineral", location="CN", classifications=codes)]
+        before = deepcopy(database)
+        snapshot = self.capture(builder(database))
+        pair = (database[0]["name"], database[0]["reference product"])
+        self.assertEqual(snapshot.classifications[pair]["CPC"], "undefined")
+        self.assertEqual(snapshot.classifications[pair]["ISIC rev.4 ecoinvent"], codes[-1][1])
+        self.assertEqual(snapshot.stats["conflicts"], 1)
+        row = next(row for row in snapshot.audit if row["classification_system"] == "CPC")
+        self.assertEqual(row["status"], "conflicting_metadata")
+        self.assertIn(codes[0][1], row["reason"])
+        self.assertIn(codes[1][1], row["reason"])
+        self.assertEqual(database, before)
+
+    def test_duplicate_native_source_and_scenario_metadata_remain_metadata_only(self):
+        dataset = activity(classifications=[("CPC", "33500: Wax"), ("CPC", "15200: Gypsum"),
+                                             ("ISIC", "1920: Refining")])
+        store = MetadataOnlyStore([dataset])
+        before = deepcopy(store._state.activities)
+        snapshot = self.capture(SimpleNamespace(scenarios=[{"_inventory_store": store}],
+                                               _source_inventory_store=store, _inventory_api_active=True))
+        self.assertEqual(snapshot.classifications[(dataset["name"], dataset["reference product"])]["CPC"], "undefined")
+        self.assertEqual(store._state.activities, before)
+        self.assertEqual(store.generation, 3)
+
+    def test_duplicate_reference_lists_and_mapping_values_do_not_resolve_ambiguity(self):
+        codes = [("CPC", "33500: Wax"), ("CPC", "15200: Gypsum")]
+        for reference in ([activity(classifications=codes)],
+                          {("chemical production", "chemical", "kilogram"): codes}):
+            with self.subTest(reference=reference):
+                snapshot = self.capture(builder([activity()]), reference)
+                self.assertEqual(snapshot.classifications[("chemical production", "chemical")]["CPC"], "undefined")
+                self.assertEqual(snapshot.stats["conflicts"], 1)
+                row = next(row for row in snapshot.audit if row["classification_system"] == "CPC")
+                self.assertIn("33500: Wax", row["reason"])
+                self.assertIn("15200: Gypsum", row["reason"])
+
+    def test_single_record_same_numeric_code_keeps_first_description(self):
+        snapshot = self.capture(builder([activity(classifications=[("CPC", "34740: Full description"),
+                                                                   ("CPC", "34740: Abbreviated")])]))
+        self.assertEqual(snapshot.classifications[("chemical production", "chemical")]["CPC"], "34740: Full description")
+        self.assertEqual(snapshot.stats["conflicts"], 0)
 
 
 class ClassificationRulesAndExportTest(unittest.TestCase):
@@ -308,6 +355,29 @@ class ClassificationRulesAndExportTest(unittest.TestCase):
         self.assertEqual(snapshot.classifications[("chemical production", "chemical")]["CPC"], "undefined")
         self.assertEqual(snapshot.stats["conflicts"], 1)
 
+    def test_duplicate_entries_in_one_legacy_sidecar_keep_conflicts_with_undefined_own_label(self):
+        path = self.directory / "source.pickle"
+        path.write_bytes(pickle.dumps({("chemical production", "chemical", "NL"): {
+            "classifications": [("CPC", "33500: Wax"), ("CPC", "15200: Gypsum"), ("ISIC", "1920: Refining")]
+        }}))
+        before = path.read_bytes()
+        for own in ({"CPC": "undefined"}, [("CPC", "33500: Wax"), ("CPC", "15200: Gypsum")]):
+            with self.subTest(own=own):
+                database = [activity(classifications=own)]
+                original = deepcopy(database)
+                definition = {"database": database, "database metadata cache filepath": path}
+                snapshot = capture_scenario_classifications(SimpleNamespace(scenarios=[definition]), rules_path=None,
+                                                           reference_func=lambda: ())
+                self.assertEqual(snapshot.classifications[("chemical production", "chemical")]["CPC"], "undefined")
+                self.assertEqual(snapshot.stats["conflicts"], 1)
+                self.assertEqual(database, original)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_authored_rule_duplicate_codes_still_fail(self):
+        path = self.rules([self.rule(classifications=[("CPC", "33500: Wax"), ("CPC", "15200: Gypsum")])])
+        with self.assertRaisesRegex(ClassificationError, "Conflicting CPC"):
+            capture_scenario_classifications(builder([activity()]), path, reference_func=lambda: ())
+
     def matrix_text(self):
         return "name;reference product;unit;location;index\nchemical production;chemical;kilogram;NL;0\nmissing;missing;kilogram;DE;1\nchemical production;chemical;kilogram;DE;2\n"
 
@@ -390,6 +460,26 @@ class ClassificationRulesAndExportTest(unittest.TestCase):
         content[0] += "missing,missing,CPC,341: Changed\n"
         with self.assertRaisesRegex(ClassificationError, "source changed"):
             snapshot.verify_sources()
+
+    def test_legacy_package_conflicting_rows_are_audited_without_dropping_activity(self):
+        path = self.directory / "legacy.zip"
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("A_matrix_index.csv", self.matrix_text())
+            archive.writestr("classifications.csv", "name,reference product,classification_system,classification_code\n"
+                             "chemical production,chemical,CPC,33500: Wax\n"
+                             "chemical production,chemical,CPC,15200: Gypsum\n"
+                             "chemical production,chemical,ISIC,1920: Refining\n")
+        before = path.read_bytes()
+        package = SimpleNamespace(classifications={("chemical production", "chemical"): "33500: Wax"}, classification_system="CPC")
+        snapshot = prepare_pathways_classifications(package, path, rules_path=None,
+                                                   reference_func=lambda: [activity(classifications={"CPC": "15200: Gypsum"})])
+        self.assertEqual(package.classifications[("chemical production", "chemical")], "undefined")
+        self.assertEqual(snapshot.classifications[("chemical production", "chemical")]["ISIC rev.4 ecoinvent"], "1920: Refining")
+        row = next(row for row in snapshot.audit if row["classification_system"] == "CPC" and row["name"] == "chemical production")
+        self.assertIn("33500: Wax", row["reason"])
+        self.assertIn("15200: Gypsum", row["reason"])
+        self.assertIn(("chemical production", "chemical"), package.reverse_classifications["undefined"])
+        self.assertEqual(path.read_bytes(), before)
 
     def test_reviewed_ambiguity_blocks_sparse_unitless_fallback(self):
         index = self.directory / "A_matrix_index.csv"

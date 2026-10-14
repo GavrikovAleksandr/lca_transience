@@ -345,11 +345,20 @@ The combined file must contain both `CL` and `OCE`; it is the file referenced by
 
 ### 2. Inspect the scenario package inputs
 
+Terminal p-xylene is now treated as already purified, following the ITOM team's
+clarification. The converter preserves the original raw-labelled ITOM rows and
+adds two derived local-supply rows: purified terminal supply and non-terminal
+extraction. They sum to the original local extraction output, with proportional
+origin allocation to other use/re-exports. Domestic raw supply still receives
+its additional 1:1 purification step. All 14 scenario/year balances and source
+hashes are recorded in `scenario_data/p_xylene_terminal_purity_audit.json`.
+See [terminal p-xylene purity and reconciliation](docs/por_px_terminal_purity.md).
+
 Review these three linked resources together:
 
 - `scenario_data/scenario_data_itom_por.csv` — quantities by scenario, region, variable, unit, and year;
 - `configuration_file/config_itom_por.yaml` — scenario-to-inventory mapping;
-- `inventories/lci-itom_por-mode-aware.xlsx` — active combined inventory: the original PoR activities plus 21 mode-aware propylene and raw-aromatic activities;
+- `inventories/lci-itom_por.xlsx` — active PoR inventory, including the mode-aware activities and purified terminal p-xylene wrapper;
 - `inventories/lci-itom_por-mode-aware-additions.xlsx` — separate copy-ready record of only those 21 additions. It is not a second datapackage resource.
 
 The original `lci-itom_por.xlsx` is retained unchanged. `datapackage_itom_por.json` points to the combined workbook because `premise` expects one `inventories` resource. Editing only the additions workbook does not update the active combined workbook. The inventory and scenario-data directories are ignored by Git in this local repository, so preserve/copy the workbooks and regenerated CSVs when moving the configuration elsewhere. See `docs/por_mode_aware_inventory.md` for route scope and unresolved assumptions.
@@ -567,10 +576,21 @@ The exact activity `name`, `reference product`, `unit`, and `location` are part 
 4. loads the external scenario descriptors;
 5. composes the REMIND background and selected external scenarios;
 6. asks `premise` to update prospective background inventories;
-7. optionally writes scenario databases to Brightway;
-8. optionally exports the compact Pathways ZIP used for repeated calculations.
+7. audits the native non-ferrous metals baseline or applies the explicitly selected non-ferrous supply-mix sensitivity, leaves IAM/EDM-I steel endogenous, then completes PoR supplier links;
+8. optionally writes scenario databases to Brightway;
+9. optionally exports the compact Pathways ZIP used for repeated calculations.
 
 The reference database is deliberately generated without selected prospective transformations, so it can serve as a stable source for custom inventory preparation. Do not delete or rename it while an inventory-development step depends on it.
+
+Non-ferrous metals are controlled in this same notebook through `NONFERROUS_METALS_SCENARIO`, defaulting to `"baseline"`, which preserves the active premise version's native inventory quantities and supplier links. This deliberately retains older premise's interpolated non-ferrous shares versus newer premise's existing secondary fractions; it does not force the baselines to be identical. Steel remains endogenous to the selected IAM or explicitly enabled EDM-I link: there is no additional steel scenario selector, recycled-content floor or primary-only override. No separate metals notebook, spreadsheet-generation script or edits inside `site-packages` are needed.
+
+`metals_scenario_policy.py` reads the repo-owned `configuration_file/metals_scenario_policy.yaml` and its live numeric inputs in `primary_vs_secondary_metals/scenario_data/`; `metals_policy_workflow.py` applies the same validated post-update non-ferrous policy to both export routes, before PoR linking and classification capture. Optional reference, conservative/moderate/high recycling and primary-only cases operate only on five explicitly configured refined non-ferrous products. All steel grades and unsupported ores/grades remain outside this override. Steel route quantities, regional supply weights and future inventories continue to follow the IAM/EDM-I model; DRI/electrolytic steel must not be interpreted as recycled merely because it uses electricity. The non-ferrous sensitivities retain process burdens and do not model scrap-stock feasibility or recalculate logistics.
+
+Notebook 1 automatically prepares named conservative/baseline/optimistic share YAMLs through `primary_vs_secondary_metals.share_files`, using the raw reference YAML and evidence/mapping CSVs by default (`METALS_SHARE_SOURCE = "yaml"`). Missing/empty or stale generated files, the baseline alias, combined document and generation manifest are maintained without a separate script. Valid manual edits to named cases are retained when raw inputs are unchanged; simultaneous raw-input and named-output changes stop with a conflict. Set `FORCE_METALS_SHARE_REGENERATION = True` only to deliberately regenerate after reviewing/backing up edits. Explicit `METALS_SHARE_SOURCE = "xlsx"` instead reads the reference workbook without modifying it; independently edited extracted YAML values then require choosing YAML mode or explicit re-extraction.
+
+The historical data file `primary_secondary_split_baseline.yaml` is selected by **`moderate_recycling`**, not the native `baseline` selector. Reference uses year 2020 of `metal_primary_secondary_shares.yaml`, and conservative/high use their separately named files. Floor cases retain a higher native share rather than reducing cast aluminium to the source files' 45%/60% values. The generator's wider product table is not an expansion of the five-market validated LCI override scope and does not create steel sensitivities.
+
+Alternative cases use a `__metals-<case>` suffix in database/package names, while baseline keeps the existing names. The notebook prints the selected ZIP for notebook 2. CSV/JSON audits are saved under `export/metals_policy/`, and the ZIP includes `metal_steel_policy.json` with the selected non-ferrous case, resolved configuration, source snapshots/fingerprints and provenance; its historical filename does not enable a steel override. Changing consumed share files or raw inputs invalidates the loaded selection: reload it and construct fresh builders. See [non-ferrous cases, endogenous steel, live source files and safeguards](docs/metals_scenario_policy.md).
 
 The additional PoR supplier-linking step is now maintained in `por_supplier_linking.py`. The export notebook attaches it after the normal premise update for both Brightway output and the internal builder used by `PathwaysDataPackage`. It applies explicit PoR replacement rules, protects import sourcing and the fixed renewable-power recipe, preserves exchange quantities/uncertainty, validates suppliers, and writes CSV/JSON change reports under `export/por_supplier_linking/`. The old manually added pre-market hook is disabled in memory where present; no installed package file needs editing. A scoped export guard prevents later geographic preparation from undoing validated links. See [post-update supplier linking](docs/por_supplier_linking.md) for selection, cache transactions, limits and rerun instructions.
 

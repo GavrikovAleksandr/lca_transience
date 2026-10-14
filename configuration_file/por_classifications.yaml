@@ -375,7 +375,7 @@ rules:
 
   - id: por_pxylene_import_and_market
     match:
-      name_regex: '^(?:p-xylene, imported from EU \(por\)|market for p-xylene \(por\))$'
+      name_regex: '^(?:p-xylene, imported from EU \(por\)|p-xylene, purified, imported from outside EU \(por\)|market for p-xylene \(por\))$'
       ref_product: p-xylene
       unit: kilogram
     classifications:

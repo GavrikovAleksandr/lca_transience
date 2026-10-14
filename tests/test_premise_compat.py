@@ -160,11 +160,15 @@ class ExportNotebookSafetyTest(unittest.TestCase):
                           {"model": "remind", "pathway": "test", "year": 2050}],
             "DB_NAME_INIT": "test_source", "EI_VERSION": "3.12",
             "KEY_PREMISE": "test_placeholder", "BIOSPHERE_DB": "test_biosphere",
+            "load_selected_metal_steel_policy": lambda: SimpleNamespace(case_suffix=""),
+            "pd": SimpleNamespace(DataFrame=lambda rows: rows), "display": lambda rows: None,
         }
         with patch("por_supplier_linking.configure_por_export_support",
                    side_effect=lambda: events.append(("install", None))), patch(
                        "por_supplier_linking.attach_por_supplier_linking",
                        side_effect=lambda *args, **kwargs: events.append(("attach", None))
+                   ), patch("metals_policy_workflow.attach_metal_steel_policy"), patch(
+                       "importlib.reload", side_effect=lambda module: module
                    ), contextlib.redirect_stdout(io.StringIO()):
             if fail_update:
                 with self.assertRaisesRegex(RuntimeError, "Synthetic update failure"):
@@ -226,9 +230,14 @@ class ExportNotebookSafetyTest(unittest.TestCase):
                      "scenarios": definitions, "DB_NAME_INIT": "test", "EI_VERSION": "3.12",
                      "KEY_PREMISE": "placeholder", "BIOSPHERE_DB": "test"}
         namespace.update(pd=SimpleNamespace(DataFrame=lambda rows: SimpleNamespace(head=lambda n: rows)),
-                         display=lambda value: None)
+                         display=lambda value: None, Path=Path,
+                         PATHWAYS_PACKAGE_BASENAME="remind-transience_por",
+                         load_selected_metal_steel_policy=lambda: SimpleNamespace(case_suffix=""))
         with patch("por_supplier_linking.configure_por_export_support"), patch("por_supplier_linking.attach_por_supplier_linking"), patch(
-                "por_supplier_linking.attach_por_pathways_export"), patch("importlib.reload", side_effect=lambda module: module):
+                "por_supplier_linking.attach_por_pathways_export"), patch(
+                "metals_policy_workflow.attach_metal_steel_policy"), patch(
+                "metals_policy_workflow.attach_metal_steel_package_provenance"), patch(
+                "importlib.reload", side_effect=lambda module: module):
             exec(compile(brightway, "brightway_cell", "exec"), namespace)
             exec(compile(package, "package_cell", "exec"), namespace)
             exec(compile(package, "package_cell_repeat", "exec"), namespace)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import wraps
@@ -30,7 +31,7 @@ from supplier_resolution import (
 )
 
 ROOT = Path(__file__).resolve().parent
-LINKING_POLICY_VERSION = 4  # v4 protects the effective, explicitly declared import-compatibility identities.
+LINKING_POLICY_VERSION = 5  # v5 distinguishes terminal identifiers from nonterminal domestic supply.
 Pair = tuple[str, str]
 _POLICIES: dict[str, "PorLinkingPolicy"] = {}
 
@@ -55,9 +56,14 @@ def _matches(record: dict, selector: dict) -> bool:
 
 
 def _import_pathway(alias: str, entry: dict) -> bool:
+    """Identify import routes without matching 'terminal' inside 'nonterminal'."""
     variable = str(entry.get("production volume", {}).get("variable", ""))
     name = str(entry.get("ecoinvent alias", {}).get("name", "")).lower()
-    return variable.startswith("Trade|") or "terminal" in variable.lower() or "_import" in alias or ", imported" in name
+    # ITOM technology identifiers use underscores, while IAMC uses pipes.
+    # A word boundary would not recognize '_terminal_BAT'; explicit identifier
+    # separators do, without classifying 'nonterminal_supply' as an import.
+    terminal = re.search(r"(?:^|[^a-z0-9])terminal(?:$|[^a-z0-9])", variable.lower()) is not None
+    return variable.startswith("Trade|") or terminal or "_import" in alias or ", imported" in name
 
 
 def _fixed_supply(name: str) -> bool:
@@ -230,8 +236,8 @@ def _source_profile(dataset, policy, index):
     return normalized
 
 
-def _protected_target(dataset, exchange, role, policy, index):
-    profile = _source_profile(dataset, policy, index)
+def _protected_target(dataset, exchange, role, policy, index, *, profile=None):
+    profile = _source_profile(dataset, policy, index) if profile is None else profile
     current_key = exchange_key(exchange)
     source_exact = [source for source in profile if exchange_key(source) == current_key]
     if source_exact:
@@ -351,6 +357,7 @@ def link_por_database(database: list[dict], policy: PorLinkingPolicy, *, model="
     }
     index = resolver.index
     result = list(database)
+    selected_results = {}
     audit = []
     selected = 0
     for position, dataset in enumerate(database):
@@ -363,6 +370,7 @@ def link_por_database(database: list[dict], policy: PorLinkingPolicy, *, model="
         # A shallow dataset copy plus copied changed exchanges preserves unrelated metadata.
         updated = dict(dataset)
         exchanges = []
+        protected_profile = None
         for row, original in enumerate(dataset.get("exchanges", [])):
             if original.get("type") != "technosphere":
                 exchanges.append(original)
@@ -378,11 +386,16 @@ def link_por_database(database: list[dict], policy: PorLinkingPolicy, *, model="
                 raise SupplierLinkingError(f"Incomplete supplier in {dataset_key(dataset)}: {key}")
             target, reason = key, "kept_existing_supplier"
             if role in ("import", "fixed_power"):
-                target = _protected_target(dataset, original, role, policy, index)
+                # The immutable consumer receipt and supplier identities are
+                # constant within this pass. Resolve the protected recipe once,
+                # never cache its decision across consumers/scenarios.
+                if protected_profile is None:
+                    protected_profile = _source_profile(dataset, policy, index)
+                target = _protected_target(dataset, original, role, policy, index, profile=protected_profile)
                 if target != key:
                     reason = "restored_protected_source_supplier"
                 if role == "fixed_power":
-                    matching = [source for source in _source_profile(dataset, policy, index) if exchange_key(source) == target]
+                    matching = [source for source in protected_profile if exchange_key(source) == target]
                     if not matching or not math.isclose(float(amount), float(matching[0]["amount"]), rel_tol=1e-12, abs_tol=1e-12):
                         raise SupplierLinkingError(f"Fixed renewable supply share changed in {dataset_key(dataset)}")
             elif role == "existing_market" and _regionalized_market_supply(
@@ -453,17 +466,25 @@ def link_por_database(database: list[dict], policy: PorLinkingPolicy, *, model="
             exchanges.append(exchange)
         updated["exchanges"] = exchanges
         result[position] = updated
+        selected_results[dataset_key(updated)] = updated
 
     # Do not allow an import provider to consume one of the PoR markets supplying it.
-    linked_index = {dataset_key(dataset): dataset for dataset in result}
+    # Reuse the already-built global resolver index. Only selected consumers
+    # have replacement payloads; retain the former last-match lookup semantics
+    # for this circular-import check without rebuilding a full catalog index.
+    def linked_dataset(key):
+        if key in selected_results:
+            return selected_results[key]
+        suppliers = index.get(key, ())
+        return suppliers[-1] if suppliers else None
     for market in policy.markets:
         for location in policy.locations:
             key = (market["name"], market["reference product"], market["unit"], location)
-            dataset = linked_index.get(key)
+            dataset = linked_dataset(key)
             if dataset is None:
                 continue
             for exchange in dataset.get("exchanges", []):
-                imported = linked_index.get(exchange_key(exchange)) if exchange.get("type") == "technosphere" else None
+                imported = linked_dataset(exchange_key(exchange)) if exchange.get("type") == "technosphere" else None
                 if imported is not None and policy.role(imported) == "import":
                     if any(exchange_key(feed) == key and feed.get("amount", 0) != 0
                            for feed in imported.get("exchanges", []) if feed.get("type") == "technosphere"):
@@ -616,8 +637,8 @@ def _has_por_scenario(scenario: dict) -> bool:
 
 def _inventory_store_api():
     """Import the store API only for premise versions/scenarios which use it."""
-    from premise import inventory_store
-    return inventory_store
+    from importlib import import_module
+    return import_module("premise.inventory_store")
 
 
 def _inventory_validation_api():
@@ -633,14 +654,10 @@ def _has_inventory_store(scenario):
 
 def _selected_store_inventory(store, policy):
     """Load background identities only; full exchanges only for linked targets."""
-    underlying = getattr(store, "_store", store)
-    iterator = getattr(underlying, "_iter_storage_activities", None)
-    if not callable(iterator):
-        database = store.materialize(restore_metadata=True)
-        return database, list(store.iter_activity_ids())
+    from native_inventory_access import iter_activity_metadata
     fields = ("name", "reference product", "unit", "location", "code", "database")
     database, activity_ids = [], []
-    for activity_id, metadata, _ in iterator():
+    for activity_id, metadata in iter_activity_metadata(store):
         entry = {key: metadata.get(key) for key in fields}
         if policy.role(entry) is not None:
             entry = store.activity(activity_id).to_dict()
@@ -691,11 +708,12 @@ def _consumer_edges(exchanges, identities, identifiers):
 
 def _graph_baseline(store, validation):
     """One native storage scan supplies fingerprints AND reusable graph edges."""
-    required = ("_iter_activity_metadata", "_iter_storage", "_stored_activity_fingerprint", "_stable_hash", "_cycle_signatures")
+    required = ("_iter_storage", "_stored_activity_fingerprint", "_stable_hash", "_cycle_signatures")
     if not all(callable(getattr(validation, name, None)) for name in required):
         return None
+    from native_inventory_access import iter_activity_metadata
     keys, identities, identifiers = {}, defaultdict(list), {}
-    for activity_id, metadata in validation._iter_activity_metadata(store):
+    for activity_id, metadata in iter_activity_metadata(store):
         key = (metadata.get("name"), metadata.get("reference product", metadata.get("product")), metadata.get("location"))
         keys[activity_id] = key
         identities[key].append(activity_id)
@@ -854,13 +872,8 @@ def _stage_store_linking(builder, scenario, policy, report_dir, *, progress=None
             progress(name)
     phase("loading updated inventory")
     api = _inventory_store_api()
-    store = scenario.get("_inventory_store")
-    if store is None:
-        if scenario.get("_inventory_checkpoint") is not None:
-            # Prefer the durable checkpoint to a possibly consumed export handoff.
-            store = api.InventoryStore.open(scenario["_inventory_checkpoint"])
-        else:
-            store = scenario.get("_inventory_export_handoff")
+    from native_inventory_access import open_inventory_store
+    store = open_inventory_store(scenario, api)
     if store is None or not all(callable(getattr(store, name, None)) for name in (
         "materialize", "iter_activity_ids", "activity", "fork", "transaction", "checkpoint",
     )):
@@ -876,6 +889,17 @@ def _stage_store_linking(builder, scenario, policy, report_dir, *, progress=None
     # Replacing those activities keeps native activity IDs, quantities and metadata.
     changed = [(activity_id, new) for activity_id, old, new in zip(activity_ids, database, linked)
                if any(left is not right for left, right in zip(old.get("exchanges", []), new.get("exchanges", [])))]
+    if not changed:
+        # Identity/quantity/uncertainty and protected-route checks above still
+        # ran. There is no new graph generation to certify or serialize: keep
+        # the original store/checkpoint, mapping and current certificate exactly.
+        summary.update(native_validation_scope="unchanged_store_generation",
+                       inventory_storage="inventory_checkpoint" if scenario.get("_inventory_checkpoint") is not None else "inventory_store",
+                       changed_activities=0, native_inventory_mutated=False)
+        phase("ready")
+        summary["phase_seconds"] = timings
+        summary["linking_seconds"] = round(time.perf_counter() - started, 3)
+        return dict(scenario), audit, summary
     certify = getattr(builder, "_certify_scenario_store", None)
     graph_context = None
     if changed and callable(certify):
@@ -1017,15 +1041,16 @@ def _stage_store_linking(builder, scenario, policy, report_dir, *, progress=None
     else:
         working.pop("_inventory_checkpoint", None)
     summary["inventory_storage"] = "inventory_checkpoint" if persisted else "inventory_store"
+    summary.update(changed_activities=len(changed), native_inventory_mutated=True)
     phase("ready")
     summary["phase_seconds"] = timings
     summary["linking_seconds"] = round(time.perf_counter() - started, 3)
     return working, audit, summary
 
 
-def apply_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "export/por_supplier_linking",
+def _apply_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "export/por_supplier_linking",
                                stage="export", load_database_func=None, dump_database_func=None,
-                               verbose=True):
+                               verbose=True, prepared_native=None):
     """Link updated legacy inventories or native stores, then commit references."""
     policy = policy or PorLinkingPolicy.from_files()
     policy.verify_sources()
@@ -1036,6 +1061,7 @@ def apply_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "expor
     if not selected:
         return []
     pending = []
+    staged_reports = []
     for ordinal, scenario in enumerate(selected, 1):
         external_names = " + ".join(str(item.get("scenario")) for item in scenario.get("external scenarios", []))
         label = f"PoR supplier linking {ordinal}/{len(selected)} — {scenario.get('year')} {external_names}"
@@ -1045,7 +1071,27 @@ def apply_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "expor
         if "external" not in scenario.get("applied functions", []):
             raise SupplierLinkingError("PoR post-linking must run after the external scenario update.")
         if _has_inventory_store(scenario):
-            working, audit, summary = _stage_store_linking(builder, scenario, policy, report_dir, progress=progress)
+            prepared = (prepared_native or {}).get(id(scenario))
+            if prepared is not None:
+                from native_inventory_access import checkpoint_token
+                if checkpoint_token(scenario) != prepared["source_token"]:
+                    raise SupplierLinkingError("Native scenario changed after live PoR linking was captured; recreate the builder.")
+                working = dict(scenario)
+                # Current scenario metadata (including the later native
+                # non-ferrous baseline receipt) is authoritative. Only the
+                # small validated checkpoint/mapping delta is overlaid.
+                for key in prepared["remove_fields"]:
+                    working.pop(key, None)
+                working.update(prepared["state"])
+                if prepared.get("staged_token") is not None and checkpoint_token(working) != prepared["staged_token"]:
+                    raise SupplierLinkingError("Staged PoR checkpoint changed before publication; refusing stale prepared inventory.")
+                audit, summary = prepared["audit"], dict(prepared["summary"])
+                summary["native_prepared_inventory_reused"] = True
+                if prepared.get("validation_report") is not None:
+                    staged_reports.append((prepared["validation_identity"], prepared["validation_report"]))
+                progress("reusing validated live-store linking")
+            else:
+                working, audit, summary = _stage_store_linking(builder, scenario, policy, report_dir, progress=progress)
             pending.append((scenario, working, audit, summary))
             progress(f"complete ({summary['linking_seconds']:.1f} s; {summary['changed_exchanges']} changed exchanges)")
             continue
@@ -1061,6 +1107,12 @@ def apply_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "expor
             working = load_database_func(scenario=working, original_database=[],
                                          delete=False, load_metadata=False, warning=False)
         database, audit, summary = link_por_database(working["database"], policy, model=str(scenario.get("model", "remind")))
+        if summary["changed_exchanges"] == 0:
+            summary["inventory_storage"] = "legacy_cache" if scenario.get("database") is None else "legacy_list"
+            # Loading occurred into a temporary dictionary, never deleting the
+            # original pickle. A no-change audit must not create another cache.
+            pending.append((scenario, dict(scenario), audit, summary))
+            continue
         working["database"] = database
         # Keep original caches/pointers intact until every scenario and report succeeds.
         dump_database_func(working)
@@ -1101,9 +1153,39 @@ def apply_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "expor
     for original, working, _, _ in pending:
         original.clear()
         original.update(working)
+    if staged_reports:
+        if not isinstance(getattr(builder, "_validation_reports", None), dict):
+            builder._validation_reports = {}
+        for identity, report in staged_reports:
+            builder._validation_reports[identity] = report
     if verbose:
         print(f"PoR supplier linking: {len(reports)} scenario(s), {sum(report['changed_exchanges'] for report in reports)} changed exchange(s). Reports: {report_dir}")
     return reports
+
+
+def apply_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "export/por_supplier_linking",
+                               stage="export", load_database_func=None, dump_database_func=None,
+                               verbose=True, prepared_native=None):
+    """Publish complete PoR plans; preserve immutable report associations on failure."""
+    present = hasattr(builder, "_validation_reports")
+    registry = getattr(builder, "_validation_reports", None)
+    associations = dict(registry) if isinstance(registry, dict) else None
+    try:
+        return _apply_por_supplier_linking(
+            builder, policy=policy, report_dir=report_dir, stage=stage,
+            load_database_func=load_database_func, dump_database_func=dump_database_func,
+            verbose=verbose, prepared_native=prepared_native)
+    except BaseException:
+        # Native reports are frozen and can contain mappingproxy payloads.
+        # Copy/restore associations only, never deepcopy a live report/store.
+        if associations is not None:
+            registry.clear()
+            registry.update(associations)
+        if present:
+            builder._validation_reports = registry
+        elif hasattr(builder, "_validation_reports"):
+            del builder._validation_reports
+        raise
 
 
 def attach_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "export/por_supplier_linking",
@@ -1120,11 +1202,53 @@ def attach_por_supplier_linking(builder, *, policy=None, report_dir=ROOT / "expo
     @wraps(original_update)
     def update_with_por_links(*args, **kwargs):
         policy.verify_sources()
-        result = original_update(*args, **kwargs)
+        from native_inventory_access import capture_updated_stores, checkpoint_token
+        prepared = {}
+        eligible = getattr(builder, "_metal_steel_policy_nonferrous_case", "baseline") == "baseline"
+        def capture(scenario, returned_store):
+            if (not eligible or not _has_por_scenario(scenario)
+                    or scenario.get("_inventory_checkpoint") is None
+                    or "external" not in scenario.get("applied functions", ())
+                    or getattr(returned_store, "backend_name", None) == "legacy"):
+                return
+            try:
+                source_token = checkpoint_token(scenario)
+            except (OSError, ValueError, TypeError):
+                # Unsupported/unfinished checkpoint receipts use the normal
+                # native opener later, with its complete corruption checks.
+                return
+            label = f"PoR live-store linking — {scenario.get('year')} {scenario.get('pathway')}"
+            def progress(phase):
+                if verbose:
+                    print(f"{label}: {phase}", flush=True)
+            working, audit, summary = _stage_store_linking(builder, scenario, policy, report_dir, progress=progress)
+            changed = bool(summary.get("native_inventory_mutated"))
+            # A no-change record has no inventory state at all: publication
+            # retains the then-current native scene and only adds its audit.
+            state = {key: working[key] for key in ("_inventory_checkpoint", "mapping", "_validation_report")
+                     if changed and key in working}
+            staged_token = checkpoint_token(working) if changed else None
+            identity = getattr(builder, "_scenario_identity", lambda scene: None)(scenario)
+            registry = getattr(builder, "_validation_reports", None)
+            report = registry.get(identity) if changed and isinstance(registry, dict) else None
+            summary["native_capture_mode"] = "per_scenario_published_compact_store"
+            prepared[id(scenario)] = {
+                "source_token": source_token, "staged_token": staged_token,
+                "state": state, "remove_fields": (
+                    "_inventory_store", "_inventory_export_handoff", "_inventory_working_copy",
+                    "database", "database filepath", "database metadata filepath") if changed else (),
+                "audit": audit, "summary": summary,
+                "validation_identity": identity, "validation_report": report,
+            }
+        if eligible:
+            with capture_updated_stores(builder, capture, priority=20):
+                result = original_update(*args, **kwargs)
+        else:
+            result = original_update(*args, **kwargs)
         builder.por_supplier_linking_reports = apply_por_supplier_linking(
             builder, policy=policy, report_dir=report_dir, stage=stage,
             load_database_func=load_database_func, dump_database_func=dump_database_func,
-            verbose=verbose,
+            verbose=verbose, prepared_native=prepared,
         )
         return result
 
@@ -1144,7 +1268,7 @@ def attach_por_pathways_export(package, **kwargs):
     from premise_compat import (PATHWAYS_MAPPING_GUARD_VERSION,
                                pathways_activity_mapping_views, write_pathways_activity_mapping)
     from por_classifications import capture_scenario_classifications, write_classification_snapshot
-    package_guard_version = (PATHWAYS_MAPPING_GUARD_VERSION, 1)
+    package_guard_version = (PATHWAYS_MAPPING_GUARD_VERSION, 2)
     if getattr(package, "_por_pathways_export_guard_version", None) == package_guard_version:
         return False
     if not hasattr(package, "datapackage") or not callable(getattr(package, "_add_variables_mapping", None)):
@@ -1205,7 +1329,19 @@ def attach_por_pathways_export(package, **kwargs):
             raise SupplierLinkingError("The concrete package mapping guard was replaced; recreate the package builder before exporting.")
         if getattr(package._add_classifications_file, "__por_classification_guard_version__", None) != 1:
             raise SupplierLinkingError("The classification export guard was replaced; recreate the package builder.")
-        return original_create(*args, **options)
+        from native_inventory_access import legacy_delta_base_columnar_scope
+        try:
+            store_api = _inventory_store_api()
+        except ModuleNotFoundError as error:
+            # premise 2.3.8 uses list/pickle inventories, not native stores.
+            # Do not hide broken dependencies inside a present native API.
+            if error.name != "premise.inventory_store":
+                raise
+            scope = nullcontext()
+        else:
+            scope = legacy_delta_base_columnar_scope(store_api)
+        with scope:
+            return original_create(*args, **options)
 
     package.datapackage.update = update_and_preflight
     package._add_variables_mapping = guarded_mapper

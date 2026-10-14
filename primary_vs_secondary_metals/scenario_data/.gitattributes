@@ -1,0 +1,4 @@
+# Manifest hashes use exact source bytes. Preserve existing line endings on checkout.
+*.yaml -text
+*.csv -text
+*.json -text

@@ -105,10 +105,23 @@ The helper distinguishes:
 - **Domestic processes:** apply explicit PoR replacement rules first. Other eligible generic inputs use NL, then the active IAM region, then an available wholly covering reference region, even when the original RoW/GLO/World supplier exists. Exact product/unit matching is required. The electricity market/group alternative must retain voltage and unit. Generic capital/service proxies are eligible too; a European construction proxy need not first be added to `regionalize/datasets`.
 - **Constructed markets/upgrading activities:** preserve the modeled supply-route exchanges and quantities. Only their declared auxiliary `add` inputs are eligible for local linking.
 - **Regionalized background markets:** retain the amount/share of each technology. A product-supply exchange from a generic region (e.g. RoW or RER) is linked to the unique same-name/product/unit NL producer only when that producer is explicitly declared in the PoR policy. Ancillary service/transport **identities** can use a covering regional proxy under version 3, but their quantities and distances remain unchanged. Intentional country-specific material/process supplies, import pathways and unconfigured product-supply technologies are retained. No equal-share or production-volume rebuilding is performed.
-- **Imports:** identify Trade/terminal/import pathways and preserve their foreign supply. The original source-workbook recipe can repair a native replacement that inadvertently points the import wrapper at a PoR market. Regionalized copies use the unique original recipe for their activity/product/unit. Legitimate foreign future suppliers are retained.
+- **Imports:** identify Trade/terminal/import pathways and preserve their foreign supply. Terminal matching requires a distinct identifier (e.g. `_terminal_BAT`), not a substring such as `nonterminal_supply`. The original source-workbook recipe can repair a native replacement that inadvertently points the import wrapper at a PoR market. Regionalized copies use the unique original recipe for their activity/product/unit. Legitimate foreign future suppliers are retained.
 - **Fixed renewable supply:** preserve the dedicated 50% solar/50% wind recipe and its supplier identities. A changed share fails validation rather than being silently renormalized.
 
 The source profile reader inspects only import and fixed-power recipes. Under policy version 4, copied profiles first replay any applicable declared inventory-compatibility decision, using the same resolver as import. The original workbook and quantities remain unchanged. Missing reference-product fields can otherwise be resolved only when the live database supplies one unambiguous product for the original name/unit/location. Missing or ambiguous source identities fail explicitly; they are not guessed. Rule/fallback checksums and the effective per-consumer receipts are retained with the prepared scenario and verified during export, including in-memory policy recovery.
+
+Policy version 5 additionally prevents the derived p-xylene extraction variable
+`para_xylene_extraction|nonterminal_supply` from being mistaken for terminal
+imports. Its YAML-created upgrading activity has no imported workbook recipe:
+it keeps the constructed raw supply mix, while its declared electricity and
+heat additions remain eligible for local supplier linking. Genuine terminal
+and European import wrappers retain the version-4 protections. Restart the
+kernel and create a fresh builder after changing the policy; older validation
+markers cannot be reused as proof of validation under version 5.
+The package's columnar checkpoint optimization is used only when premise's
+native inventory-store API exists. Older releases such as 2.3.8 retain their
+list/pickle export path; missing dependencies of an existing native API still
+raise an error rather than silently disabling it.
 
 ### Embedded market supply correction (policy version 2)
 

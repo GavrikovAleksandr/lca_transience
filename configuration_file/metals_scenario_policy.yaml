@@ -1,0 +1,190 @@
+# Repo-owned non-ferrous supply-mix sensitivities, AFTER native premise updates.
+# Baseline is deliberately a no-op in every premise version.
+schema_version: 1
+metadata:
+  description: >-
+    Explicit primary/secondary supply assumptions for refined non-ferrous metals
+    only. Steel stays endogenous to REMIND or the selected EDM-I model.
+    These are recycled-input sensitivities, not
+    end-of-life recycling rates, avoided-burden credits or scrap-stock forecasts.
+  reference_source: primary_vs_secondary_metals/scenario_data/metal_shares_2050_scenarios.yaml
+  reference_source_note: >-
+    Live scenario files are read from share_data below. Matching and safeguards
+    stay here; numeric reference/target assumptions are not duplicated here.
+    These model-specific shares do not establish observed content in every region.
+  default_nonferrous_case: baseline
+  interpolation: linear_between_years_clamped_to_endpoints
+  unsupported_product_policy: leave_native_and_report
+  sources:
+    iea_recycling_2024:
+      url: https://www.iea.org/reports/recycling-of-critical-minerals/executive-summary
+      accessed: 2026-10-13
+      note: >-
+        Supports higher secondary supply and the need to distinguish recycled
+        input from collection and recovery rates. Battery-metal and whole-metal
+        markets are not interchangeable; configured nickel/cobalt targets are
+        screening assumptions, not direct reproductions of an IEA scenario.
+    ica_copper_2023:
+      url: https://internationalcopper.org/wp-content/uploads/2023/03/Copper_The-Pathway-to-Net-Zero_Focus-on-Europe_final.pdf
+      accessed: 2026-10-13
+      note: >-
+        Reports an EU 2050 end-of-life scrap contribution to refined copper of
+        approximately 26-29%. It does not establish a global cathode target.
+    jrc_aluminium_2024:
+      url: https://publications.jrc.ec.europa.eu/repository/handle/JRC136525
+      accessed: 2026-10-13
+      note: >-
+        Supports secondary production as a decarbonisation route; not a source
+        for an exact global cast-alloy 70% recycled-content forecast.
+    van_der_voet_2019:
+      url: https://doi.org/10.1111/jiec.12722
+      accessed: 2026-10-13
+      note: >-
+        Stock-flow-informed scenarios include 77% secondary lead in 2050.
+        The 65% and 85% endpoints below bracket this as repo sensitivities.
+
+share_data:
+  directory: ../primary_vs_secondary_metals/scenario_data
+  manifest: share_generation_manifest.json
+  nonferrous:
+    reference:
+      file: metal_primary_secondary_shares.yaml
+      year: 2020
+    conservative:
+      file: primary_secondary_split_conservative.yaml
+    moderate_recycling:
+      file: primary_secondary_split_baseline.yaml
+    high_recycling:
+      file: primary_secondary_split_optimistic.yaml
+
+nonferrous_cases:
+  baseline:
+    mode: native
+    description: >-
+      Keep native premise results unchanged. Older premise interpolates its
+      installed targets; newer premise retains recognised existing secondary
+      supply. Native baselines can therefore differ between premise versions.
+  reference:
+    mode: reference
+    description: >-
+      Fix the supported refined markets to documented 2020 reference shares,
+      while retaining the future process inventories and background system.
+  conservative:
+    mode: minimum
+    description: >-
+      Set a conservative minimum recycled-input trajectory. Never lower the
+      native scenario share. Read the conservative file's targets directly;
+      its aluminium decline is not imposed on a higher native recycled fraction.
+  moderate_recycling:
+    mode: minimum
+    description: >-
+      Read the generated data file named baseline as a moderate recycling floor.
+      This is an explicit override case, not the native premise baseline selector.
+  high_recycling:
+    mode: minimum
+    description: >-
+      Higher minimum recycled-input trajectories. Hypothetical sensitivities:
+      scrap availability, recovery yields and product quality are not solved.
+  primary_only:
+    mode: target
+    description: >-
+      Explicit 0% secondary supply counterfactual, not a central or BAU forecast.
+
+markets:
+  - id: aluminium_cast_alloy
+    sector: nonferrous
+    name: market for aluminium, cast alloy
+    reference product: aluminium, cast alloy
+    unit: kilogram
+    locations: [World, GLO]
+    supply_products: ["aluminium, cast alloy"]
+    supply_product_note: >-
+      The verified exported market supplies cast alloy from both primary and
+      scrap-treatment providers. Only same-grade supplies are enabled here;
+      primary liquid aluminium is not silently substituted for cast alloy.
+    secondary:
+      name_contains: [treatment of aluminium scrap]
+    source_product: aluminium, cast alloy
+    evidence: [jrc_aluminium_2024]
+    target_note: >-
+      Curves come from the selected scenario file. Minimum mode retains a
+      higher native share instead of imposing the 45%/60% source endpoints.
+      Future fractions are sensitivities, not validated cast-alloy forecasts.
+
+  - id: copper_cathode
+    sector: nonferrous
+    name: market for copper, cathode
+    reference product: copper, cathode
+    unit: kilogram
+    locations: [World, GLO]
+    secondary:
+      name_contains:
+        - treatment of metal part
+        - treatment of copper cake
+        - treatment of copper scrap
+        - treatment of non-Fe-Co-metals
+        - treatment of used cable
+    source_product: copper, cathode
+    evidence: [ica_copper_2023, iea_recycling_2024]
+    target_note: >-
+      25% is conservative relative to the cited EU scrap contribution; 45%
+      is a higher global sensitivity. Neither reproduces the EU forecast or
+      equates reduced mining requirements with recycled cathode content.
+
+  - id: nickel_class_1
+    sector: nonferrous
+    name: market for nickel, class 1
+    reference product: nickel, class 1
+    unit: kilogram
+    locations: [World, GLO]
+    secondary:
+      name_contains:
+        - treatment of metal part of electronics scrap, in copper, anode, by electrolytic refining
+    source_product: nickel, class 1
+    evidence: [iea_recycling_2024]
+    target_note: >-
+      Existing same-grade recycling providers only. These scenarios scale the
+      existing electronics-scrap recovery recipe; they do not invent a future
+      battery-grade nickel process, or assign whole-sector recycled nickel
+      percentages directly to nickel class 1 without qualification.
+
+  - id: cobalt
+    sector: nonferrous
+    name: market for cobalt
+    reference product: cobalt
+    unit: kilogram
+    locations: [World, GLO]
+    secondary:
+      name_contains: [treatment of used Li-ion battery]
+    source_product: cobalt
+    evidence: [iea_recycling_2024]
+    target_note: >-
+      Scales the existing hydrometallurgical/pyrometallurgical recovery recipe.
+      The 40% case is deliberately exploratory and is not directly inferred
+      from the IEA percentage reduction in new mine development.
+
+  - id: lead
+    sector: nonferrous
+    name: market for lead
+    reference product: lead
+    unit: kilogram
+    locations: [World, GLO]
+    secondary:
+      name_contains:
+        - treatment of scrap lead acid battery, remelting
+        - treatment of electronics scrap, metals recovery in copper smelter
+    source_product: lead
+    evidence: [van_der_voet_2019]
+    target_note: >-
+      Lower/upper sensitivity around the literature 77% secondary-production
+      figure. The same remelting/recovery burdens are retained, not credited away.
+
+excluded_scope:
+  - products: [ores, concentrates, mineral feedstocks]
+    reason: Mining inputs do not become recycled refined-metal markets by relabelling their supply.
+  - products: ["aluminium, primary, ingot", "aluminium, primary, liquid"]
+    reason: Explicit-primary product markets remain primary; no implicit grade conversion is added.
+  - products: [zinc, rare earth oxides, "lithium carbonate, battery grade", graphite]
+    reason: No validated same-product active secondary recipe and target mapping is provided here; leave native supplies unchanged.
+  - products: [steel, "steel, low-alloyed", "steel, unalloyed", "steel, chromium steel 18/8", "steel, chromium steel 18/10"]
+    reason: All steel mixes and production routes remain endogenous to REMIND or the selected EDM-I model; no exogenous steel share overrides are permitted.

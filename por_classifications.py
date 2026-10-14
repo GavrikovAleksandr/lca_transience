@@ -60,8 +60,14 @@ def _clean(value):
     return "" if text.lower() in ("nan", "none", "null") else text
 
 
-def _classes(value):
-    """Preserve exact official codes and reject incompatible duplicate systems."""
+def _classes(value, *, conflicts=None):
+    """Parse classifications; metadata conflicts are opt-in audited unknowns.
+
+    Authored rules remain strict. Inherited inventories can contain several
+    incompatible labels for one system (including allocated co-products).
+    Callers supplying ``conflicts`` retain every candidate instead of choosing
+    a label or stopping an otherwise valid inventory export.
+    """
     if value is None:
         return {}
     if isinstance(value, Mapping):
@@ -81,11 +87,34 @@ def _classes(value):
             continue
         if system in SYSTEMS and code in ("0", "0.0"):
             continue
+        if conflicts is not None and conflicts.get(system):
+            if code != "undefined":
+                conflicts[system].add(code)
+            result[system] = "undefined"
+            continue
         previous = result.get(system)
-        if previous is not None and previous != code:
-            raise ClassificationError(f"Conflicting {system} classifications: {previous!r}, {code!r}")
-        result[system] = code
+        if previous is not None and not _same_code(system, previous, code):
+            if conflicts is None:
+                raise ClassificationError(f"Conflicting {system} classifications: {previous!r}, {code!r}")
+            if previous == "undefined":
+                result[system] = code
+            elif code != "undefined":
+                conflicts.setdefault(system, set()).update((previous, code))
+                result[system] = "undefined"
+        elif previous is None:
+            result[system] = code
     return result
+
+
+def _classification_metadata(value, inherited=None):
+    conflicts = {("ISIC rev.4 ecoinvent" if system == "ISIC" else system):
+                 {_clean(code) for code in codes if _clean(code) and _clean(code) != "undefined"}
+                 for system, codes in (inherited or {}).items()}
+    conflicts = {system: codes for system, codes in conflicts.items() if codes}
+    classes = _classes(value, conflicts=conflicts)
+    for system in conflicts:
+        classes[system] = "undefined"
+    return classes, conflicts
 
 
 def _same_code(system, first, second):
@@ -119,6 +148,10 @@ def _metadata_record(record):
             result["classifications"] = lazy().get("classifications")
     else:
         result["classifications"] = record.get("classifications")
+    inherited = dict.get(record, "_classification_conflicts") if isinstance(record, dict) else record.get("_classification_conflicts")
+    result["classifications"], conflicts = _classification_metadata(result.get("classifications"), inherited)
+    if conflicts:
+        result["_classification_conflicts"] = conflicts
     return result
 
 
@@ -177,15 +210,22 @@ def _legacy_sidecar_classifications(scenario, source_hashes):
             for identity, values in chunk.items():
                 if not isinstance(identity, (tuple, list)) or len(identity) < 3 or not isinstance(values, Mapping):
                     continue
-                classes = _classes(values.get("classifications"))
+                classes, conflicts = _classification_metadata(values.get("classifications"))
                 if not classes:
                     continue
                 entry = result.setdefault(tuple(identity[:3]), {"classifications": {}, "conflicts": {}, "sources": set()})
                 entry["sources"].add(str(path))
+                for system, codes in conflicts.items():
+                    existing = entry["classifications"].get(system)
+                    entry["conflicts"].setdefault(system, set()).update(codes)
+                    if existing and existing != "undefined":
+                        entry["conflicts"][system].add(existing)
+                    entry["classifications"][system] = "undefined"
                 for system, code in classes.items():
                     old = entry["classifications"].get(system)
                     if system in entry["conflicts"]:
-                        entry["conflicts"][system].add(code)
+                        if code != "undefined":
+                            entry["conflicts"][system].add(code)
                     elif old and not _same_code(system, old, code):
                         entry["conflicts"][system] = {old, code}
                         entry["classifications"][system] = "undefined"
@@ -194,12 +234,17 @@ def _legacy_sidecar_classifications(scenario, source_hashes):
     return result
 
 
+def _open_checkpoint_store(path):
+    import native_inventory_access
+    return native_inventory_access.open_checkpoint_with_legacy_base(_inventory_store_api(), path)
+
+
 def _scenario_records(scenario, load_database_func=None, source_hashes=None):
     # A checkpoint is authoritative over a consumed/stale export handoff.
     if scenario.get("_inventory_store") is not None:
         yield from _store_records(scenario["_inventory_store"])
     elif scenario.get("_inventory_checkpoint") is not None:
-        store = _inventory_store_api().InventoryStore.open(scenario["_inventory_checkpoint"])
+        store = _open_checkpoint_store(scenario["_inventory_checkpoint"])
         yield from _store_records(store)
     elif scenario.get("_inventory_export_handoff") is not None:
         yield from _store_records(scenario["_inventory_export_handoff"])
@@ -219,10 +264,16 @@ def _scenario_records(scenario, load_database_func=None, source_hashes=None):
             cached = sidecars.get((*_pair(row), _clean(row.get("location"))))
             if cached:
                 own = _classes(row.get("classifications"))
+                own_conflicts = row.get("_classification_conflicts", {})
                 row["classifications"] = {**cached["classifications"], **own}
                 row["_classification_source"] = "; ".join(sorted(cached["sources"]))
-                row["_classification_conflicts"] = {system: values for system, values in cached["conflicts"].items()
-                                                    if system not in own}
+                combined = {system: set(values) for system, values in cached["conflicts"].items()
+                            if own.get(system, "undefined") == "undefined"}
+                for system, values in own_conflicts.items():
+                    combined.setdefault(system, set()).update(values)
+                row["_classification_conflicts"] = combined
+                for system in combined:
+                    row["classifications"][system] = "undefined"
             yield row
     else:
         raise ClassificationError("Scenario has no readable inventory; capture classifications after updates and before matrix export.")
@@ -239,12 +290,13 @@ def _csv_records(handle):
         if not all(pair):
             continue
         if "classification_system" in row:
-            classes = _classes([(row["classification_system"], row.get("classification_code"))])
+            classes, conflicts = _classification_metadata([(row["classification_system"], row.get("classification_code"))])
         else:
-            classes = _classes({key: value for key, value in row.items()
+            classes, conflicts = _classification_metadata({key: value for key, value in row.items()
                                 if key not in ("name", "reference product", "product", "unit", "location", "index")})
         yield {"name": pair[0], "reference product": pair[1], "unit": row.get("unit"),
-               "location": row.get("location"), "classifications": classes}
+               "location": row.get("location"), "classifications": classes,
+               "_classification_conflicts": conflicts}
 
 
 def _bundled_reference_records():
@@ -430,12 +482,14 @@ def _build_snapshot(records, reference_records, rules, source_hashes, *, stores=
             raise ClassificationError(f"Activity has incomplete classification identity: {pair}")
         unit = _clean(record.get("unit"))
         identity = (*pair, unit)
-        for system, values in record.get("ambiguous_systems", {}).items():
+        classes, inherited_conflicts = _classification_metadata(
+            record.get("classifications"), record.get("_classification_conflicts"))
+        for system, values in (*record.get("ambiguous_systems", {}).items(), *inherited_conflicts.items()):
             system = "ISIC rev.4 ecoinvent" if system == "ISIC" else system
             codes = [_clean(value) for value in values]
             ambiguous_references[(identity, system)].update(code for code in codes if code)
             references[identity].pop(system, None)
-        for system, code in _classes(record.get("classifications")).items():
+        for system, code in classes.items():
             if code == "undefined":
                 continue
             before = references[identity].get(system)
@@ -468,10 +522,12 @@ def _build_snapshot(records, reference_records, rules, source_hashes, *, stores=
         variant = group["records"].setdefault(unit, {"name": pair[0], "reference product": pair[1], "unit": unit,
                                                      "classifications": {}, "conflicts": {}, "sources": {}, "statuses": {}, "preserve_undefined": set()})
         variant["preserve_undefined"].update(record.get("_preserve_undefined_systems", ()))
-        for system, values in record.get("_classification_conflicts", {}).items():
+        classes, inherited_conflicts = _classification_metadata(
+            record.get("classifications"), record.get("_classification_conflicts"))
+        for system, values in inherited_conflicts.items():
             variant["conflicts"].setdefault(system, set()).update(values)
             variant["classifications"][system] = "undefined"
-        for system, code in _classes(record.get("classifications")).items():
+        for system, code in classes.items():
             variant["sources"][system] = record.get("_classification_sources", {}).get(system, record.get("_classification_source", "scenario_metadata"))
             variant["statuses"][system] = record.get("_classification_statuses", {}).get(system, "original_metadata")
             if system in variant["conflicts"]:
@@ -802,7 +858,7 @@ def _matrix_records(package, package_path, hashes):
                 yield row
 
 
-def _provided_classifications(package, package_path, hashes, resource_readers):
+def _provided_classifications(package, package_path, hashes, resource_readers, classification_conflicts=None):
     """Identify declared package metadata separately from Pathways fallbacks."""
     data = getattr(package, "data", None)
     resource = None
@@ -816,14 +872,29 @@ def _provided_classifications(package, package_path, hashes, resource_readers):
 
     def read(handle):
         result = {}
+        conflicts_by_pair = classification_conflicts if classification_conflicts is not None else {}
         for row in _csv_records(handle):
             pair = _pair(row)
-            for system, code in _classes(row.get("classifications")).items():
+            conflicts = conflicts_by_pair.setdefault(pair, {})
+            classes, row_conflicts = _classification_metadata(row.get("classifications"), row.get("_classification_conflicts"))
+            for system, codes in row_conflicts.items():
+                conflicts.setdefault(system, set()).update(codes)
+            for system, code in classes.items():
                 values = result.setdefault(pair, {})
                 old = values.get(system)
-                if old and not _same_code(system, old, code):
-                    raise ClassificationError(f"Conflicting declared package classifications for {pair}, {system}: {old!r} / {code!r}")
-                values[system] = code
+                if conflicts.get(system):
+                    if old and old != "undefined":
+                        conflicts[system].add(old)
+                    if code != "undefined":
+                        conflicts[system].add(code)
+                    values[system] = "undefined"
+                elif old == "undefined" or code == "undefined":
+                    values[system] = "undefined"
+                elif old and not _same_code(system, old, code):
+                    conflicts.setdefault(system, set()).update((old, code))
+                    values[system] = "undefined"
+                elif old is None:
+                    values[system] = code
         return result
 
     if resource is not None:
@@ -886,7 +957,8 @@ def prepare_pathways_classifications(package, package_path=None, rules_path=DEFA
     selected_system = "ISIC rev.4 ecoinvent" if selected_system == "ISIC" else selected_system
     existing = getattr(package, "classifications", {})
     resource_readers = {}
-    provided, provided_source = _provided_classifications(package, package_path, hashes, resource_readers)
+    provided_conflicts = {}
+    provided, provided_source = _provided_classifications(package, package_path, hashes, resource_readers, provided_conflicts)
 
     def records():
         for row in _matrix_records(package, package_path, hashes):
@@ -894,6 +966,8 @@ def prepare_pathways_classifications(package, package_path=None, rules_path=DEFA
             declared = dict(provided.get(pair, {})) if provided is not None else {}
             row["classifications"] = declared
             row["_classification_sources"] = {system: provided_source for system in declared}
+            row["_classification_conflicts"] = {system: set(values)
+                                                for system, values in provided_conflicts.get(pair, {}).items()}
             preserve_undefined = {system for system, value in declared.items() if value == "undefined"}
             code = _clean(existing.get(pair))
             # Activity mappings may deliberately replace official numeric codes
@@ -903,6 +977,7 @@ def prepare_pathways_classifications(package, package_path=None, rules_path=DEFA
                 row["classifications"][selected_system] = code
                 row["_classification_sources"][selected_system] = "selected_existing_categories"
                 row["_classification_statuses"] = {selected_system: "selected_category"}
+                row["_classification_conflicts"].pop(selected_system, None)
                 if code == "undefined":
                     preserve_undefined.add(selected_system)
                 else:

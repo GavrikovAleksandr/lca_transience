@@ -89,6 +89,17 @@ the selected CPC/ISIC grouping or credit treatment. See
 [the rule sources and interpretation](por_classification_rules_sources.md) for
 category definitions, boundary decisions and licensing restrictions.
 
+Inherited metadata can also contain **several incompatible codes for the same
+system inside one activity**, not just different codes across regional copies.
+For example, an allocated gypsum co-product of petroleum-coke production can
+carry both CPC 33500 and 15200. The reader records both labels in the audit and
+uses `undefined` for that system only; its valid ISIC label and all numerical
+contributions remain intact. This also applies to legacy metadata sidecars and
+older package CSV rows. Descriptions that differ but retain the same official
+numeric code are not conflicts. Malformed metadata and contradictory explicitly
+authored classification rules still raise errors rather than being silently
+accepted.
+
 ## Reviewing or extending the rules
 
 1. Inspect `classification_review` in notebook 2, or the export audit CSV.

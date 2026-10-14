@@ -11,6 +11,8 @@ inventories
 inventories/itom_por
 data/ecoinvent_312_selected_plastics.xlsx
 remind-transience_por.zip
+/remind-transience_por__metals-*__steel-*.zip
+/remind-transience_por__metals-*.zip
 remind-transience_por - init.zip
 results_*
 data/audit*
@@ -37,4 +39,27 @@ tests/*
 !tests/test_por_classifications.py
 !tests/test_pathways_classification_compat.py
 !tests/test_por_pathways_instance.py
+!tests/test_metals_scenario_policy.py
+!tests/test_metals_policy_workflow.py
+!tests/test_metals_notebook.py
+!tests/test_metal_share_generation.py
+!tests/test_metals_share_connection.py
+!tests/test_native_inventory_access.py
+!tests/test_por_px_terminal_purity.py
+/tmp/por_px_purity/
+
+# Keep the small, live share inputs/scenarios with their repo-owned workflow.
+# The workbook remains local; YAML mode does not depend on its presence.
+!primary_vs_secondary_metals/scenario_data/
+primary_vs_secondary_metals/scenario_data/*
+!primary_vs_secondary_metals/scenario_data/.gitattributes
+!primary_vs_secondary_metals/scenario_data/metal_primary_secondary_shares.yaml
+!primary_vs_secondary_metals/scenario_data/metal_2050_literature_evidence.csv
+!primary_vs_secondary_metals/scenario_data/metal_product_family_mapping.csv
+!primary_vs_secondary_metals/scenario_data/primary_secondary_split.yaml
+!primary_vs_secondary_metals/scenario_data/primary_secondary_split_baseline.yaml
+!primary_vs_secondary_metals/scenario_data/primary_secondary_split_conservative.yaml
+!primary_vs_secondary_metals/scenario_data/primary_secondary_split_optimistic.yaml
+!primary_vs_secondary_metals/scenario_data/metal_shares_2050_scenarios.yaml
+!primary_vs_secondary_metals/scenario_data/share_generation_manifest.json
 /pathways_temp

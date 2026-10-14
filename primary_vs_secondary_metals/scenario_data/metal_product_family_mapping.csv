@@ -1,0 +1,104 @@
+product,family
+stibnite concentrate,nonmetal_low
+antimony,base_low
+bauxite,nonmetal_low
+aluminium hydroxide,nonmetal_low
+"aluminium oxide, metallurgical",nonmetal_low
+"aluminium, primary, liquid",nonmetal_low
+"aluminium, primary, ingot",nonmetal_low
+"aluminium, cast alloy",aluminium
+bentonite,nonmetal_low
+beryllium hydroxide,nonmetal_low
+beryllium,base_low
+calcium borates,nonmetal_low
+sodium borates,nonmetal_low
+"boric acid, anhydrous, powder",base_low
+boron trifluoride,base_low
+boric oxide,base_low
+boron carbide,base_low
+cadmium,base_low
+chromite ore concentrate,nonmetal_low
+chromium,base_low
+copper-cobalt ore,nonmetal_low
+cobalt hydroxide,cobalt
+cobalt sulfate,cobalt
+cobalt,cobalt
+"copper concentrate, sulfide ore",nonmetal_low
+"copper, anode",copper
+"copper, cathode",copper
+"gallium, semiconductor-grade",base_low
+"germanium, concentrate",nonmetal_low
+gold,precious_metals
+graphite,graphite
+"graphite ore, mined",nonmetal_low
+hafnium tetrachloride,base_low
+hafnium sponge,base_low
+"indium rich leaching residues, from zinc production",base_low
+indium,base_low
+iridium,pgm
+iron ore concentrate,nonmetal_low
+lead concentrate,nonmetal_low
+lead,lead
+spodumene,nonmetal_low
+"lithium carbonate, battery grade",lithium
+"lithium hydroxide, battery grade",lithium
+dolomite,nonmetal_low
+magnesium,base_low
+manganese concentrate,nonmetal_low
+manganese,base_low
+molybdenite,base_low
+molybdenum,base_low
+"nickel concentrate, 16% Ni",nonmetal_low
+"nickel, class 1",nickel
+"phosphate rock, beneficiated",nonmetal_low
+"phosphoric acid, fertiliser grade, without water, in 70% solution state",nonmetal_low
+"phosphorus, white, liquid",nonmetal_low
+palladium,pgm
+platinum,pgm
+platinum group metal concentrate,nonmetal_low
+potash salt,nonmetal_low
+rare earth carbonate concentrate,nonmetal_low
+dysprosium oxide,rare_earths
+erbium oxide,rare_earths
+europium oxide,rare_earths
+gadolinium oxide,rare_earths
+ytterbium oxide,rare_earths
+terbium oxide,rare_earths
+thulium oxide,rare_earths
+yttrium oxide,rare_earths
+samarium oxide,rare_earths
+scandium oxide,rare_earths
+lanthanum oxide,rare_earths
+praseodymium oxide,rare_earths
+neodymium oxide,rare_earths
+lutetium oxide,rare_earths
+holmium oxide,rare_earths
+cerium oxide,rare_earths
+lanthanum-cerium oxide,rare_earths
+rhenium,base_low
+ruthenium,pgm
+selenium,base_low
+sand,nonmetal_low
+silica sand,nonmetal_low
+"silicon, metallurgical grade",base_low
+silver,precious_metals
+"strontium sulfate, 90% SrSO4",base_low
+sulfur,nonmetal_low
+pyrochlore concentrate,nonmetal_low
+"ferroniobium, 66% Nb",base_low
+"tantalum concentrate, 30% Ta2O5",nonmetal_low
+"tellurium, semiconductor-grade",base_low
+tin concentrate,nonmetal_low
+tin,base_low
+"ilmenite, 54% titanium dioxide",base_low
+"rutile, 95% titanium dioxide",base_low
+titanium tetrachloride,base_low
+titanium sponge,base_low
+titanium,base_low
+tungsten concentrate,nonmetal_low
+"uranium ore, as U",nonmetal_low
+vanadium bearing magnetite,base_low
+vanadium pentoxide,base_low
+zinc concentrate,nonmetal_low
+zinc,zinc
+zircon,base_low
