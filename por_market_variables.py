@@ -2,6 +2,9 @@
 
 Directions describe physical flows, independent of legacy ITOM classifications.
 No market is created and no balance residual is assigned to a supplier here.
+Steam mode rows cover all recorded port users and producers, excluding pricing
+use. Energy Supply|steam|outside_port is real use minus production, retains
+negative values, and is independent of recorded imports and exports.
 """
 import re
 import numpy as np
@@ -105,6 +108,9 @@ def extend_port_market_variables(existing, sources, *, annualization=5):
             keys.update((direction,product,t,m) for direction in ('production','use'))
         if t.startswith('plastic_waste_pyrolysis_'):keys.add(('use','methane',t,m))
     for r in detail.itertuples():
+        # Steam serves the whole port. Pricing devices remain audit-only.
+        if r.product == 'steam' and not r.excluded_pricing:
+            keys.add((r.direction,r.product,r.technology,r.mode))
         if r.direction=='production' and ((r.product=='hydrogen' and r.technology in HYDROGEN_PRODUCERS) or (r.product=='cracker_H2' and r.technology in CRACKER_PRODUCERS) or (r.product=='methane' and r.technology=='retrofit_MTA_with_loop')):
             keys.add((r.direction,r.product,r.technology,r.mode))
         if r.direction=='use' and r.product in ('hydrogen','cracker_H2'):
@@ -134,6 +140,14 @@ def extend_port_market_variables(existing, sources, *, annualization=5):
         model=existing.loc[existing.scenario.eq(scenario),'model'].iloc[0]
         for year in years:
             def total(direction,product,t):return sum(v for (s,y,d,p,tech,m),v in index.items() if (s,y,d,p,tech)==(scenario,year,direction,product,t))
+            steam_production = sum(q for (s,y,d,p,t,m),q in index.items()
+                                   if (s,y,d,p)==(scenario,year,'production','steam'))
+            real_steam_use = sum(q for (s,y,d,p,t,m),q in index.items()
+                                 if (s,y,d,p)==(scenario,year,'use','steam')
+                                 and not t.startswith('waste_production_'))
+            derived.append(dict(model=model,scenario=scenario,region='NL',
+                variables='Energy Supply|steam|outside_port',unit='TJ/yr',year=year,
+                value=real_steam_use-steam_production))
             demand=total('use','cracker_H2','hydrogen_separation_membrane')
             output=total('production','hydrogen','hydrogen_separation_membrane')
             supply=sum(index.get((scenario,year,'production','cracker_H2',t,m),0.) for t,m in producers)
@@ -164,10 +178,12 @@ def extend_port_market_variables(existing, sources, *, annualization=5):
         parts=row['variables'].split('|');trade_row=parts[0]=='Trade'
         product=parts[2] if trade_row else parts[1]
         if product not in PRODUCTS:continue
-        direction=('production' if parts[1]=='To PoR' else 'use') if trade_row else 'use' if parts[0] in ('Material Use','Energy Use') else 'production'
+        outside_supply = row['variables']=='Energy Supply|steam|outside_port'
+        direction='supply' if outside_supply else ('production' if parts[1]=='To PoR' else 'use') if trade_row else 'use' if parts[0] in ('Material Use','Energy Use') else 'production'
         derived_row='|from|' in row['variables']
         source=('transport_to_PoR' if direction=='production' else 'transport_from_PoR') if trade_row else 'use_volume' if direction=='use' else 'production_volume'
-        if row['region']=='NL' and not trade_row and not derived_row:
+        if outside_supply:source='derived: real use_volume minus production_volume; pricing excluded'
+        if row['region']=='NL' and not trade_row and not derived_row and not outside_supply:
             technology=parts[2]
             mode=int(parts[-1][4:]) if re.fullmatch(r'mode\d+',parts[-1]) else None
             for year in years:
@@ -175,7 +191,7 @@ def extend_port_market_variables(existing, sources, *, annualization=5):
                           if (s,y,d,p,t)==(row['scenario'],year,direction,product,technology) and (mode is None or m==mode))
                 if not np.isclose(float(row[year]),value,rtol=1e-10,atol=1e-8):
                     raise ValueError(f'Production/use row differs from its source: {row["variables"]}, {year}')
-        directions.append(dict(scenario=row['scenario'],region=row['region'],variables=row['variables'],unit=row['unit'],direction=direction,source_sheet=source,derived_proportional_split=derived_row,legacy_Input_name_holds_production=direction=='production' and parts[0] in ('Material Input','Energy Input'),counting_note='Alias/mode/detail rows must not be summed together; balances use source rows only'))
+        directions.append(dict(scenario=row['scenario'],region=row['region'],variables=row['variables'],unit=row['unit'],direction=direction,source_sheet=source,derived_proportional_split=derived_row,derived_outside_supply=outside_supply,negative_years=[y for y in years if float(row[y])<0] if outside_supply else [],legacy_Input_name_holds_production=direction=='production' and parts[0] in ('Material Input','Energy Input'),counting_note='Alias/mode/detail rows must not be summed together; balances use source rows only; outside supply is signed, not clipped'))
     energy=[];trade=pd.DataFrame(trade,columns=['scenario','year','product','direction','amount'])
     for scenario in scenarios:
         for year in years:
@@ -191,5 +207,5 @@ def extend_port_market_variables(existing, sources, *, annualization=5):
                 remainder=uo+other_u+exports-po-other_p-imports
                 accounting=remainder+excluded
                 tolerance=max(1e-6,1e-10*max(po+other_p+imports,uo+other_u+exports+excluded))
-                energy.append(dict(scenario=scenario,year=year,product=product,unit='TJ/yr',own_production=po,own_use=uo,other_port_production=other_p,other_physical_port_use=other_u,imports=imports,exports=exports,excluded_pricing_use=excluded,own_net_requirement=uo-po,physical_port_remainder=remainder,balance_with_pricing=accounting,physical_balance_closed=abs(remainder)<=tolerance,pricing_balance_closed=abs(accounting)<=tolerance,approved_for_market_use=False))
+                energy.append(dict(scenario=scenario,year=year,product=product,unit='TJ/yr',own_production=po,own_use=uo,other_port_production=other_p,other_physical_port_use=other_u,imports=imports,exports=exports,excluded_pricing_use=excluded,own_net_requirement=uo-po,outside_port_supply=uo+other_u-po-other_p,physical_port_remainder=remainder,balance_with_pricing=accounting,physical_balance_closed=abs(remainder)<=tolerance,pricing_balance_closed=abs(accounting)<=tolerance,approved_for_market_use=False))
     return dict(data=combined,flow_details=detail,hydrogen_split=pd.DataFrame(split),energy_balance=pd.DataFrame(energy),row_directions=pd.DataFrame(directions),explicit_zeros=pd.DataFrame(zero))

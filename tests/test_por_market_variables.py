@@ -40,6 +40,40 @@ def fixture():
 
 
 class PortMarketVariables(unittest.TestCase):
+    def test_all_port_steam_and_signed_outside_supply(self):
+        old,sources=fixture()
+        # An existing port producer operates only in CL, only in 2035.
+        p=sources['CL']['production_volume']
+        p.loc[len(p)]=['Rotterdam','legacy_factory','steam',3,2035,25]
+        result=extend_port_market_variables(old,sources)
+        data=result['data'].set_index(['scenario','variables'])
+        self.assertEqual(data.loc[('CL','Energy Use|steam|outside_process|mode1'),2035],8)
+        self.assertEqual(data.loc[('CL','Energy Output|steam|legacy_factory|mode3'),2035],5)
+        self.assertEqual(data.loc[('CL','Energy Output|steam|legacy_factory|mode3'),2050],0)
+        self.assertEqual(data.loc[('OCE','Energy Output|steam|legacy_factory|mode3'),2035],0)
+        self.assertFalse(any('waste_production_demo' in x for x in result['data'].variables))
+        for scenario in ('CL','OCE'):
+            for year in (2035,2050):
+                part=result['data'].loc[result['data'].scenario.eq(scenario)]
+                use=part.loc[part.variables.str.match(r'Energy Use\|steam\|.*\|mode\d+$'),year].sum()
+                production=part.loc[part.variables.str.match(r'Energy Output\|steam\|.*\|mode\d+$'),year].sum()
+                value=data.loc[(scenario,'Energy Supply|steam|outside_port'),year]
+                self.assertAlmostEqual(production+value,use)
+                self.assertLess(value,0)  # Surplus remains negative, not clipped.
+        audit=result['row_directions'].loc[lambda f:f.derived_outside_supply]
+        self.assertTrue(audit.direction.eq('supply').all())
+        self.assertTrue(audit.negative_years.map(bool).all())
+
+    def test_steam_outside_supply_can_be_positive_or_zero(self):
+        old,sources=fixture()
+        for scenario in sources:
+            frame=sources[scenario]['production_volume']
+            frame.loc[frame.PRODUCT.eq('steam'),'LocalProductionByMode']=70 if scenario=='CL' else 0
+            old.loc[old.scenario.eq(scenario)&old.variables.eq('Energy Input|steam|MTO_with_loop'),['2035','2050']]=14 if scenario=='CL' else 0
+        data=extend_port_market_variables(old,sources)['data'].set_index(['scenario','variables'])
+        self.assertEqual(data.loc[('CL','Energy Supply|steam|outside_port'),2035],0)
+        self.assertEqual(data.loc[('OCE','Energy Supply|steam|outside_port'),2035],14)
+
     def test_converter_with_new_market_yaml_resolves_before_generic_completion(self):
         """Real converter + exporter + completion, synthetic workbook/YAML only."""
         import yaml
@@ -55,6 +89,8 @@ class PortMarketVariables(unittest.TestCase):
         variables=['Energy Output|steam|MTO_with_loop|mode2',
                    'Energy Output|steam|retrofit_MTA_with_loop|mode1',
                    'Intermediate Product_by_product|methane|retrofit_MTA_with_loop|mode2',
+                   'Energy Use|steam|outside_process|mode1',
+                   'Energy Supply|steam|outside_port',
                    'Material Input|hydrogen|hydrogen_separation_membrane|from|retrofit_MTA_with_loop|mode1']
         config={'production pathways':{str(i):{'production volume':{'variable':v}} for i,v in enumerate(variables)}}
         config['production pathways']['FE_demo']={'production volume':{'variable':'Final Product|test|route'}}
@@ -73,6 +109,8 @@ class PortMarketVariables(unittest.TestCase):
         self.assertEqual(data.loc[('OCE',variables[0]),2050],20)
         self.assertEqual(data.loc[('CL',variables[-1]),2050],9)
         self.assertEqual(data.loc[('OCE',variables[-1]),2050],0)
+        self.assertEqual(data.loc[('CL','Energy Use|steam|outside_process|mode1'),2035],8)
+        self.assertEqual(data.loc[('CL','Energy Supply|steam|outside_port'),2035],-6)
         self.assertFalse(result['data'].duplicated(['model','scenario','region','variables','unit']).any())
         self.assertFalse(any(r['variable'] in variables for r in result['audit_data']['explicit_zero_pathways']))
 

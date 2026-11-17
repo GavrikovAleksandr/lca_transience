@@ -18,6 +18,13 @@ SPEC.loader.exec_module(converter)
 
 
 class ExecutionOptions(unittest.TestCase):
+    def test_disabled_port_flows_never_call_extension(self):
+        with TemporaryDirectory() as tmp,patch('por_market_variables.extend_port_market_variables',
+                side_effect=AssertionError('Disabled extension was called')):
+            default,_,_=self.run_fixture(Path(tmp),write=False)
+            disabled,_,_=self.run_fixture(Path(tmp),write=False,port_market_flows=False)
+            pd.testing.assert_frame_equal(default['data'],disabled['data'])
+
     def test_market_flow_files_are_tagged_inside_selected_destination(self):
         def extend(frame,sources):
             return {'data':frame,'row_directions':pd.DataFrame([{'direction':'production'}])}
